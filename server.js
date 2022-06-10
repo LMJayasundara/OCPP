@@ -12,13 +12,16 @@ wss.on('connection', function (ws, req) {
     console.log("Connected Charger ID: "  + ws.id);
 
     ws.on('message', function (msg) {
-        console.log("From client: ", msg.toString());
-        ws.send("Hello " + ws.id);
+        // console.log("From client: ", msg.toString());
+        // ws.send("Hello " + ws.id);
 
         // Broadcast that message to all connected clients
-        // wss.clients.forEach(function (client) {
-        //     client.send("Someone said: " + msg);
-        // });
+        wss.clients.forEach(function (client) {
+            if(client.id == urlData[1]){
+                console.log("From client: ", msg.toString());
+                client.send("Hello " + ws.id);
+            };
+        });
     });
 
     ws.on('close', function () {
