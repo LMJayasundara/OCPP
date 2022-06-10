@@ -1,4 +1,5 @@
 const WebSocket = require('ws');
+const fs = require('fs');
 const encode = require('nodejs-base64-encode');
 
 const username = "ID_0001"; // "ID_0002";
@@ -14,8 +15,12 @@ const ws = new WebSocket(URL + "" + username, ["ocpp2.0", username, password], {
 });
 
 ws.on('open', function() {
-    ws.send("Charger_0001");
-    // ws.send("Charger_0002");
+    // ws.send("Charger_0001");
+    let rawdata = fs.readFileSync('./json/Start_Transaction.json');
+    let sTrans = JSON.parse(rawdata);
+    sTrans.eventType = "Started";
+    sTrans.timestamp = new Date();
+    ws.send(JSON.stringify(sTrans));
 });
 
 ws.on('message', function(msg) {
