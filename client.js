@@ -16,10 +16,11 @@ const ws = new WebSocket(URL + "" + username, ["ocpp2.0", username, password], {
 
 ws.on('open', function() {
     // ws.send("Charger_0001");
-    let rawdata = fs.readFileSync('./json/Start_Transaction.json');
+    let rawdata = fs.readFileSync('./json/TransactionEventRequest.json');
     let sTrans = JSON.parse(rawdata);
     sTrans.eventType = "Started";
-    sTrans.timestamp = new Date();
+    sTrans.timestamp = Date.now(); // new Date();
+    
     ws.send(JSON.stringify(sTrans));
 });
 

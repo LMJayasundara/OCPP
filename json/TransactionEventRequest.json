@@ -1,0 +1,46 @@
+{
+    "eventType": null,
+    "timestamp": null,
+    "triggerReason": null,
+    "seqNo": null,
+    "offline": null,
+    "numberOfPhasesUsed": null,
+    "cableMaxCurrent": null,
+    "reservationId": null,
+    "transactionData": {
+        "id": null,
+        "chargingState": null,
+        "timeSpentCharging": null,
+        "stoppedReason": null,
+        "remoteStartId": null
+    },
+    "idToken": {
+        "idToken": null,
+        "type": null,
+        "additionalInfo": null
+    },
+    "evse": {
+        "id": null,
+        "connectorId": null
+    },
+    "meterValue": {
+        "timestamp": null,
+        "sampledValue": {
+            "value": null,
+            "context": null,
+            "measurand": null,
+            "phase": null,
+            "location": null,
+            "signedMeterValue": {
+                "meterValueSignature": null,
+                "signatureMethod": null,
+                "encodingMethod": null,
+                "encodedMeterValue": null
+            },
+            "unitOfMeasure": {
+                "unit": null,
+                "multiplier": null
+            }
+        }
+    }
+}

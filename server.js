@@ -1,4 +1,5 @@
 const WebSocket = require('ws');
+const fs = require('fs');
 
 const PORT = 5000;
 
@@ -19,7 +20,11 @@ wss.on('connection', function (ws, req) {
         wss.clients.forEach(function (client) {
             if(client.id == urlData[1]){
                 console.log("From client: ", msg.toString());
-                client.send("Hello " + ws.id);
+
+                let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
+                let traRes = JSON.parse(traResRow);
+                client.send(JSON.stringify(traRes));
+                // client.send("Hello " + ws.id);
             };
         });
     });
