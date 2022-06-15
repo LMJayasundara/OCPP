@@ -31,7 +31,7 @@ wss.on('connection', function (ws, req) {
 
     ws.on('close', function () {
         console.log('Client disconnected '+ ws.id);
-    })
+    });
 
 });
 
