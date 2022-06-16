@@ -3,7 +3,7 @@ const fs = require('fs');
 const encode = require('nodejs-base64-encode');
 const ReconnectingWebSocket = require('reconnecting-websocket');
 
-const username = "ID_0001"; // "ID_0002";
+const username = "ID_0001";
 const password = "pa$$word";
 const URL = "ws://127.0.0.1:5000/"; 
 var basicAuthToken = encode.encode(username + ':' + password, 'base64');
@@ -19,7 +19,6 @@ function startWebsocket() {
     });
 
     ws.on('open', function() {
-        // ws.send("Charger_0001");
         clearInterval(reconn);
 
         let rawdata = fs.readFileSync('./json/TransactionEventRequest.json');
