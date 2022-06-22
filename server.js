@@ -6,7 +6,6 @@ var passwd = 'pa$$word' // should be get form db
 const wss = new WebSocketServer({
     port: PORT,
     verifyClient: function (info, cb) {
-        console.log(info.req.url);
         if(info.req.url !== "/ocpp"){
             var authentication = Buffer.from(info.req.headers.authorization.replace(/Basic/, '').trim(),'base64').toString('utf-8');
             if (!authentication)
@@ -50,7 +49,6 @@ wss.on('connection', function (ws, request) {
 
     ws.on('close', function () {
         console.log('Client disconnected '+ ws.id);
-        // console.log(ws);
     });
 
 });
