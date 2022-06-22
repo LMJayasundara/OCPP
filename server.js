@@ -6,33 +6,37 @@ var passwd = 'pa$$word' // should be get form db
 const wss = new WebSocketServer({
     port: PORT,
     verifyClient: function (info, cb) {
-        var token = info.req.headers['sec-websocket-protocol'].split(',');
-        if (!token)
-            cb(false, 401, 'Unauthorized')
-        else {
-            if (token[2] != passwd) {
-                console.log("ERROR Username / Password NOT matched");
-                cb(false, 401, 'Unauthorized')
-            } else {
-                console.log("Username / Password matched");
-                cb(true, 200, 'Unauthorized')
+        if(info.req.url === "/ProtectedData"){
+            var authentication = Buffer.from(info.req.headers.authorization.replace(/Basic/, '').trim(),'base64').toString('utf-8');
+            if (!authentication)
+                cb(false, 401, 'Unauthorized');
+            else {
+                var loginInfo = authentication.trim().split(':');
+                if (loginInfo[1] != passwd) {
+                    console.log("ERROR Username / Password NOT matched");
+                    cb(false, 401, 'Unauthorized');
+                } else {
+                    console.log("Username / Password matched");
+                    info.req.identity = loginInfo[0];
+                    cb(true, 200, 'Authorized');
+                }
             }
         }
+        else{
+            cb(false, 401, 'Unauthorized')
+        }
+        
     }
 });
 
-wss.on('connection', function (ws, req) {
-    var urlData = req.headers['sec-websocket-protocol'].split(',');
-    ws.id = urlData[1];
+wss.on('connection', function (ws, request) {
+    ws.id = request.identity;
     console.log("Connected Charger ID: "  + ws.id);
 
     ws.on('message', function (msg) {
-        // console.log("From client: ", msg.toString());
-        // ws.send("Hello " + ws.id);
-
         // Broadcast message to all connected clients
         wss.clients.forEach(function (client) {
-            if(client.id == urlData[1]){
+            if(client.id == request.identity){
                 console.log("From client: ", msg.toString());
 
                 let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');

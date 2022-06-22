@@ -2,13 +2,19 @@ const WebSocket = require('ws');
 const fs = require('fs');
 
 const username = "ID_0001";
-const password = "pa$$word";
+const BasicAuthPassword = "pa$$word";
 const URL = "ws://127.0.0.1:5000/";
 var reconn = null;
+var subdirectory = null;
 
 function startWebsocket() {
-    var ws = new WebSocket(URL + "" + username, ["ocpp2.0", username, password], {
-        perMessageDeflate: false
+    subdirectory = "ProtectedData"
+    // var ws = new WebSocket(URL + "" + subdirectory, ["ocpp2.0", username, password], {
+    var ws = new WebSocket(URL + "" + subdirectory, {
+        perMessageDeflate: false,
+        headers: {
+            Authorization: 'Basic ' + Buffer.from(username + ':' + BasicAuthPassword).toString('base64'),
+        },
     });
 
     ws.on('open', function() {
@@ -27,7 +33,7 @@ function startWebsocket() {
     });
 
     ws.on('error', function (err) {
-        console.log(err);
+        console.log(err.message);
     });
 
     ws.on('close', function() {
