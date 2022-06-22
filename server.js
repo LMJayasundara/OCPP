@@ -6,15 +6,16 @@ var passwd = 'pa$$word' // should be get form db
 const wss = new WebSocketServer({
     port: PORT,
     verifyClient: function (info, cb) {
-        if(info.req.url === "/ProtectedData"){
+        console.log(info.req.url);
+        if(info.req.url !== "/ocpp"){
             var authentication = Buffer.from(info.req.headers.authorization.replace(/Basic/, '').trim(),'base64').toString('utf-8');
             if (!authentication)
-                cb(false, 401, 'Unauthorized');
+                cb(false, 401, 'Authorization Required');
             else {
                 var loginInfo = authentication.trim().split(':');
                 if (loginInfo[1] != passwd) {
                     console.log("ERROR Username / Password NOT matched");
-                    cb(false, 401, 'Unauthorized');
+                    cb(false, 401, 'Authorization Required');
                 } else {
                     console.log("Username / Password matched");
                     info.req.identity = loginInfo[0];
@@ -26,7 +27,8 @@ const wss = new WebSocketServer({
             cb(false, 401, 'Unauthorized')
         }
         
-    }
+    },
+    rejectUnauthorized: false
 });
 
 wss.on('connection', function (ws, request) {
@@ -37,7 +39,7 @@ wss.on('connection', function (ws, request) {
         // Broadcast message to all connected clients
         wss.clients.forEach(function (client) {
             if(client.id == request.identity){
-                console.log("From client: ", msg.toString());
+                console.log("From client",ws.id,": ", msg.toString());
 
                 let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
                 let traRes = JSON.parse(traResRow);
@@ -48,6 +50,7 @@ wss.on('connection', function (ws, request) {
 
     ws.on('close', function () {
         console.log('Client disconnected '+ ws.id);
+        // console.log(ws);
     });
 
 });
