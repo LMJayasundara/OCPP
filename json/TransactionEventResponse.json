@@ -1,0 +1,29 @@
+{
+    "totalCost": null,
+    "chargingPriority": null,
+    "idTokenInfo": {
+        "status": null,
+        "cacheExpiryDateTime": null,
+        "chargingPriority": null,
+        "language1": null,
+        "language2": null,
+        "groupIdToken": {
+            "idToken": null,
+            "type": null,
+            "additionalInfo": {
+                "additionalIdToken": null,
+                "type": null
+            }
+        },
+        "personalMessage": {
+            "format": null,
+            "language": null,
+            "content": null
+        }
+    },
+    "updatedPersonalMessage": {
+        "format": null,
+        "language": null,
+        "content": null
+    }
+}

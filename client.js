@@ -1,23 +1,42 @@
 const WebSocket = require('ws');
-const encode = require('nodejs-base64-encode');
+const fs = require('fs');
 
-const username = "ID_0001"; // "ID_0002";
-const password = "pa$$word";
-const URL = "ws://127.0.0.1:5000/"; 
-var basicAuthToken = encode.encode(username + ':' + password, 'base64');
+const username = "ID_0001";
+const BasicAuthPassword = "pa$$word";
+const URL = "ws://127.0.0.1:5000/ocpp";
+var reconn = null;
 
-const ws = new WebSocket(URL + "" + username, ["ocpp2.0", username, password], {
-    perMessageDeflate: false,
-    headers: {
-        Authorization: `Basic ${basicAuthToken}`,
-    },
-});
+function startWebsocket() {
+    var ws = new WebSocket(URL + "" + username, {
+        perMessageDeflate: false,
+        headers: {
+            Authorization: 'Basic ' + Buffer.from(username + ':' + BasicAuthPassword).toString('base64'),
+        },
+    });
 
-ws.on('open', function() {
-    ws.send("Charger_0001");
-    // ws.send("Charger_0002");
-});
+    ws.on('open', function() {
+        clearInterval(reconn);
 
-ws.on('message', function(msg) {
-    console.log("From server: " + msg);
-});
+        let rawdata = fs.readFileSync('./json/TransactionEventRequest.json');
+        let sTrans = JSON.parse(rawdata);
+        sTrans.eventType = "Started";
+        sTrans.timestamp = Date.now(); // new Date();
+
+        ws.send(JSON.stringify(sTrans));
+    });
+
+    ws.on('message', function(msg) {
+        console.log("From server: " + msg);
+    });
+
+    ws.on('error', function (err) {
+        console.log(err.message);
+    });
+
+    ws.on('close', function() {
+        ws = null;
+        reconn = setTimeout(startWebsocket, 5000);
+    });
+}
+
+startWebsocket();
