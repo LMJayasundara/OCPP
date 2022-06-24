@@ -1,15 +1,30 @@
 const WebSocketServer = require('ws').Server;
 const fs = require('fs');
-const PORT = 5000;
-var passwd = 'pa$$word' // should be get form db
-// const tls = require('tls');
+const https = require('https');
 
+const PORT = 8080;
+var passwd = 'pa$$word' // should be get form db
 const clients = new Set();
 
+const server = new https.createServer({
+    cert: fs.readFileSync(`${__dirname}/key/server-crt.pem`),
+    key: fs.readFileSync(`${__dirname}/key/server-key.pem`),
+    ca: [
+      fs.readFileSync(`${__dirname}/key/client-ca-crt.pem`)
+    ],
+    requestCert: true,
+    rejectUnauthorized: true,
+    secureProtocol: 'TLS_method',
+    ciphers: 'AES128-GCM-SHA256:AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384',
+    ecdhCurve: 'secp521r1:secp384r1',
+    honorCipherOrder: true
+});
+
 const wss = new WebSocketServer({
-    port: PORT,
+    server,
     verifyClient: function (info, cb) {
-        if(info.req.url !== "/ocpp"){
+        var success = !!info.req.client.authorized;
+        if(success){
             var authentication = Buffer.from(info.req.headers.authorization.replace(/Basic/, '').trim(),'base64').toString('utf-8');
             if (!authentication)
                 cb(false, 401, 'Authorization Required');
@@ -59,4 +74,6 @@ wss.on('connection', function (ws, request) {
 
 });
 
-console.log( (new Date()) + " Server is listening on port " + PORT);
+server.listen(PORT, ()=>{
+    console.log( (new Date()) + " Server is listening on port " + PORT);
+});
