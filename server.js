@@ -2,6 +2,9 @@ const WebSocketServer = require('ws').Server;
 const fs = require('fs');
 const PORT = 5000;
 var passwd = 'pa$$word' // should be get form db
+// const tls = require('tls');
+
+const clients = new Set();
 
 const wss = new WebSocketServer({
     port: PORT,
@@ -31,6 +34,7 @@ const wss = new WebSocketServer({
 });
 
 wss.on('connection', function (ws, request) {
+    clients.add(request.identity);
     ws.id = request.identity;
     console.log("Connected Charger ID: "  + ws.id);
 
@@ -48,7 +52,9 @@ wss.on('connection', function (ws, request) {
     });
 
     ws.on('close', function () {
+        clients.delete(ws.id);
         console.log('Client disconnected '+ ws.id);
+        console.log(clients);
     });
 
 });
