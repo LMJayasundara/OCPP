@@ -14,7 +14,7 @@ var ocspCache = new ocsp.Cache();
 
 const PORT = 8080;
 const passwd = 'pa$$word' // Should be get form db
-const clients = new Set();
+const onlineclients = new Set();
 
 // Config the https options
 const options = {
@@ -116,7 +116,7 @@ wss.on('connection', function (ws, req) {
     });
 
     // Check status of the certificates
-    if(checkCertificateValidity(daysRemaining, valid) == true) {
+    if(checkCertificateValidity(daysRemaining, valid) == true && !onlineclients.has(req.identity)) {
         ws.on('message', function incoming(message) {
             // Broadcast message to specific connected client
             wss.clients.forEach(function (client) {
@@ -132,7 +132,7 @@ wss.on('connection', function (ws, req) {
                             var status = res.type;
                             if(status == 'good'){
                                 // Add client to the list
-                                clients.add(req.identity);
+                                onlineclients.add(req.identity);
 
                                 console.log("Connected Charger ID: "  + ws.id);
                                 console.log("From client: ", ws.id, ": ", message.toString());
@@ -149,10 +149,13 @@ wss.on('connection', function (ws, req) {
         });
     
         ws.on('close', function () {
-            clients.delete(ws.id);
+            onlineclients.delete(ws.id);
             console.log('Client disconnected '+ ws.id);
-            console.log(clients);
+            console.log(onlineclients);
         });
+    }
+    else{
+        ws.send("Client already connected!")
     }
 
 });
