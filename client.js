@@ -8,8 +8,8 @@ var reconn = null;
 
 function startWebsocket() {
     var ws = new WebSocket(URL + "" + username, {
-        key: fs.readFileSync(`${__dirname}/pki/admin/private/admin.key.pem`),
-        cert: fs.readFileSync(`${__dirname}/pki/admin/certs/admin.cert.pem`),
+        key: fs.readFileSync(`${__dirname}/pki/ID001/private/client.key.pem`),
+        cert: fs.readFileSync(`${__dirname}/pki/ID001/certs/client.cert.pem`),
 
         // To enable security option 2, comment out the ca certificate and change the rejectUnauthorized: false
         ca: [
