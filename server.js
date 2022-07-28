@@ -8,10 +8,10 @@ const clients = new Set();
 
 // Config the https options
 const options = {
-    cert: fs.readFileSync(`${__dirname}/key/server-crt.pem`),
-    key: fs.readFileSync(`${__dirname}/key/server-key.pem`),
+    cert: fs.readFileSync(`${__dirname}/pki/server/certs/server.cert.pem`),
+    key: fs.readFileSync(`${__dirname}/pki/server/private/server.key.pem`),
     ca: [
-      fs.readFileSync(`${__dirname}/key/client-ca-crt.pem`)
+        fs.readFileSync(`${__dirname}/pki/intermediate/certs/ca-chain.cert.pem`)
     ],
     requestCert: true,
     rejectUnauthorized: true,
@@ -29,6 +29,7 @@ const wss = new WebSocketServer({
     verifyClient: function (info, cb) {
         // Certificactes auth
         var success = !!info.req.client.authorized;
+        console.log("Certificactes Authorized: ", success);
         // Basic auth
         if(success){
             var authentication = Buffer.from(info.req.headers.authorization,'base64').toString('utf-8');
@@ -89,8 +90,8 @@ wss.on('connection', function (ws, request) {
     var daysRemaining = getDaysRemaining(new Date(), validTo);
     var valid = request.socket.authorized || false;
 
-    console.log("daysRemaining: ", daysRemaining);
-    console.log("valid: ", valid);
+    console.log("Days Remaining: ", daysRemaining);
+    console.log("Expired: ", !valid);
 
     // Add client to the list
     clients.add(request.identity);
