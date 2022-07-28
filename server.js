@@ -9,9 +9,12 @@ const kill = require('tree-kill');
 var reocsp = null;
 global.config = yaml.load(fs.readFileSync('config/config.yml', 'utf8'));
 
+var ocsp = require('ocsp');
+var ocspCache = new ocsp.Cache();
+
 const PORT = 8080;
 const passwd = 'pa$$word' // Should be get form db
-const clients = new Set();
+const onlineclients = new Set();
 
 // Config the https options
 const options = {
@@ -59,7 +62,7 @@ const wss = new WebSocketServer({
         }
         
     },
-    rejectUnauthorized: false
+    // rejectUnauthorized: false
 });
 
 // return validate days
@@ -87,44 +90,74 @@ const checkCertificateValidity = (daysRemaining, valid) => {
     return isValid;
 };
 
-wss.on('connection', function (ws, request) {
-    // Check revoke status of the certificates
-    const crt = request.connection.getPeerCertificate();
-    const vFrom = crt.valid_from;
-    const vTo = crt.valid_to;
+wss.on('connection', function (ws, req) {
+    ws.id = req.identity;
+
+    var cert = req.socket.getPeerCertificate(true);
+    var vTo = cert.valid_to;
     var validTo = new Date(vTo);
-
     var daysRemaining = getDaysRemaining(new Date(), validTo);
-    var valid = request.socket.authorized || false;
-
+    var valid = req.socket.authorized || false;
     console.log("Days Remaining: ", daysRemaining);
     console.log("Expired: ", !valid);
 
-    // Add client to the list
-    clients.add(request.identity);
-    ws.id = request.identity;
-    console.log("Connected Charger ID: "  + ws.id);
+    var cert = req.socket.getPeerCertificate(true);
+    var rawCert = cert.raw;
+    var rawIssuer = cert.issuerCertificate.raw;
 
-    if(checkCertificateValidity(daysRemaining, valid) == true) {
-        ws.on('message', function (msg) {
-            // Broadcast message to all connected clients
+    ocsp.getOCSPURI(rawCert, function(err, uri) {
+        if (err) console.log(err);
+        var req = ocsp.request.generate(rawCert, rawIssuer);
+        var options = {
+            url: uri,
+            ocsp: req.data
+        };
+        ocspCache.request(req.id, options, null);
+    });
+
+    // Check status of the certificates
+    if(checkCertificateValidity(daysRemaining, valid) == true && !onlineclients.has(req.identity)) {
+        ws.on('message', function incoming(message) {
+            // Broadcast message to specific connected client
             wss.clients.forEach(function (client) {
-                if(client.id == request.identity){
-                    console.log("From client",ws.id,": ", msg.toString());
-    
-                    let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
-                    let traRes = JSON.parse(traResRow);
-                    client.send(JSON.stringify(traRes));
+                // console.log(ocspCache.cache);
+                if(client.id == req.identity){
+                    // Check revoke status of the certificates
+                    ocsp.check({cert: rawCert, issuer: rawIssuer}, function(err, res) {
+                        if(err) {
+                            console.log(err.message);
+                            client.send('Failed to obtain OCSP response!');
+                        } else {
+                            console.log(res.type);
+                            var status = res.type;
+                            if(status == 'good'){
+                                // Add client to the list
+                                onlineclients.add(req.identity);
+
+                                console.log("Connected Charger ID: "  + ws.id);
+                                console.log("From client: ", ws.id, ": ", message.toString());
+                                let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
+                                let traRes = JSON.parse(traResRow);
+                                client.send(JSON.stringify(traRes));
+                            }else{
+                                client.send('Certificate is revoked!');
+                            }
+                        }                              
+                    });
                 };
             });
         });
     
         ws.on('close', function () {
-            clients.delete(ws.id);
+            onlineclients.delete(ws.id);
             console.log('Client disconnected '+ ws.id);
-            console.log(clients);
+            console.log(onlineclients);
         });
     }
+    else{
+        ws.send("Client already connected!")
+    }
+
 });
 
 server.listen(PORT, ()=>{
