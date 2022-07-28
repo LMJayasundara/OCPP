@@ -2,8 +2,15 @@ const WebSocketServer = require('ws').Server;
 const fs = require('fs');
 const https = require('https');
 
+const ocsp_server = require('./ocsp_server.js');
+const yaml = require('js-yaml');
+const spawn = require('child_process').spawn;
+const kill = require('tree-kill');
+var reocsp = null;
+global.config = yaml.load(fs.readFileSync('config/config.yml', 'utf8'));
+
 const PORT = 8080;
-var passwd = 'pa$$word' // Should be get form db
+const passwd = 'pa$$word' // Should be get form db
 const clients = new Set();
 
 // Config the https options
@@ -121,5 +128,67 @@ wss.on('connection', function (ws, request) {
 });
 
 server.listen(PORT, ()=>{
+    ocsp_server.startServer().then(function (cbocsp) {
+        var ocsprenewint = 1000 * 60; // 1min
+        reocsp = cbocsp;
+
+        setInterval(() => {
+            kill(cbocsp.pid, 'SIGKILL', function(err) {
+                if(err){
+                    console.log(err.message);
+                    process.exit();
+                }
+                else{
+                    console.log("Restart the ocsp server..");
+                    cbocsp = spawn('openssl', [
+                        'ocsp',
+                        '-port', global.config.ca.ocsp.port,
+                        '-text',
+                        '-index', 'intermediate/index.txt',
+                        '-CA', 'intermediate/certs/ca-chain.cert.pem',
+                        '-rkey', 'ocsp/private/ocsp.key.pem',
+                        '-rsigner', 'ocsp/certs/ocsp.cert.pem',
+                        '-nmin', '1'
+                     ], {
+                        cwd: __dirname + '/pki/',
+                        detached: true,
+                        shell: true
+                    });
+        
+                    cbocsp.on('error', function(error) {
+                        console.log("OCSP server startup error: " + error);
+                        reject(error);
+                    });
+
+                    reocsp = cbocsp;
+                }
+            });
+
+        }, ocsprenewint);
+
+    })
+    .catch(function(error){
+        console.log("Could not start OCSP server: " + error);
+    });
+
     console.log( (new Date()) + " Server is listening on port " + PORT);
 });
+
+// Server stop routine and events
+var stopServer = function() {
+    console.log("Received termination signal.");
+    console.log("Stopping OCSP server...");
+    kill(reocsp.pid, 'SIGKILL', function(err) {
+        if(err){
+            console.log(err.message);
+        }
+        else{
+            console.log("Server stoped!");
+        }
+        process.exit();
+    });
+};
+
+process.on('SIGINT', stopServer);
+process.on('SIGHUP', stopServer);
+process.on('SIGQUIT', stopServer);
