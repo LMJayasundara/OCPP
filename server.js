@@ -12,6 +12,12 @@ global.config = yaml.load(fs.readFileSync('config/config.yml', 'utf8'));
 var ocsp = require('ocsp');
 var ocspCache = new ocsp.Cache();
 
+var bodyparser = require('body-parser');
+var express = require('express');
+var app = express();
+var api = require('./api.js');
+app.use(bodyparser.json());
+
 const PORT = 8080;
 const passwd = 'pa$$word' // Should be get form db
 const onlineclients = new Set();
@@ -31,7 +37,7 @@ const options = {
 }
 
 // Create the server
-const server = new https.createServer(options);
+const server = new https.createServer(options, app);
 
 // Create the websocket
 const wss = new WebSocketServer({
@@ -161,6 +167,7 @@ wss.on('connection', function (ws, req) {
 });
 
 server.listen(PORT, ()=>{
+    api.initAPI(app);
     ocsp_server.startServer().then(function (cbocsp) {
         var ocsprenewint = 1000 * 60; // 1min
         reocsp = cbocsp;
