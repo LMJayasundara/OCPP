@@ -193,9 +193,34 @@ const updatepass = function(username, newpass){
     });
 };
 
+var check = function(clients, id, newhash){
+    return new Promise(function(resolve, rejects){
+        if(clients.size != 0){
+            clients.forEach(function (client) {
+                if(client.id == id){
+                    client.send(
+                        JSON.stringify({
+                            topic: "updatepass",
+                            id: client.id,
+                            newhash: newhash
+                        })
+                    );
+                    resolve(true);
+                }
+                else{
+                    resolve(false);
+                }
+            });
+        }
+        else{
+            resolve(false);
+        }
+    });
+};
+
 /////////////////////////////////////////////////////// Init APIs ///////////////////////////////////////////////////////
 
-const initAPI = function(app) {
+const initAPI = function(app, wss) {
 
     app.post(apipath + '/user/', function(req, res) {
         console.log("Admin is requesting to create a new user:", req.body.name);
@@ -279,15 +304,28 @@ const initAPI = function(app) {
 
     app.post(apipath + '/updatepass/', function(req, res) {
         console.log("Admin is requesting to update Basic auth password of client " + req.body.username);
+        var newhash = crypto.createHash('sha256').update(req.body.username + ':' + req.body.newpasswd).digest('hex');
 
         var hash = crypto.createHash('sha256').update(req.body.username + ':' + req.body.passwd).digest('hex');
         checkUser(hash).then(function(ack){
             if(ack == true){
-                updatepass(req.body.username, req.body.newpasswd).then(function(ack){
-                    res.json({
-                        success: ack
-                    });
+                check(wss.clients, req.body.username, newhash).then(function(ack) {
+                    if(ack){
+                        updatepass(req.body.username, req.body.newpasswd).then(function(ack){
+                            res.json({
+                                success: "true",
+                                result: req.body.username + " Client update password"
+                            });
+                        }); 
+                    }
+                    else{
+                        res.json({
+                            success: "fasle",
+                            result: req.body.username + " Client can not update password"
+                        });
+                    }
                 });
+                
             }
             else{
                 res.json({

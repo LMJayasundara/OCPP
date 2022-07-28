@@ -22,6 +22,30 @@ const PORT = 8080;
 const passwd = 'pa$$word' // Should be get form db
 const onlineclients = new Set();
 
+const path = require('path');
+const pkidir = path.resolve(__dirname + '/pki/').split(path.sep).join("/")+"/";
+const DB_FILE_PATH = path.join(pkidir, 'db', 'user.db');
+
+const checkUser = function(id) {
+    return new Promise(function(resolve, reject) {
+        fs.readFile(DB_FILE_PATH, 'utf8', function(err, passFile) {
+            if (err) {
+                console.log(err);
+                resolve(false);
+            } else {
+                const lines = passFile.split('\n');
+
+                lines.forEach(function(line) {
+                    if (line.split(':')[0] === id) {
+                        resolve(line.split(':')[1]);
+                    }
+                });
+            }
+            resolve(false);
+        });
+    });
+};
+
 // Config the https options
 const options = {
     cert: fs.readFileSync(`${__dirname}/pki/server/certs/server.cert.pem`),
@@ -42,6 +66,7 @@ const server = new https.createServer(options, app);
 // Create the websocket
 const wss = new WebSocketServer({
     server,
+    rejectUnauthorized: true,
     verifyClient: function (info, cb) {
         // Certificactes auth
         var success = !!info.req.client.authorized;
@@ -49,26 +74,31 @@ const wss = new WebSocketServer({
         // Basic auth
         if(success){
             var authentication = Buffer.from(info.req.headers.authorization,'base64').toString('utf-8');
-            if (!authentication)
-                cb(false, 401, 'Authorization Required');
+            var loginInfo = authentication.trim().split(':');
+            if (!authentication) cb(false, 401, 'Authorization Required');
             else {
-                var loginInfo = authentication.trim().split(':');
-                if (loginInfo[1] != passwd) {
-                    console.log("ERROR Username / Password NOT matched");
-                    cb(false, 401, 'Authorization Required');
-                } else {
-                    console.log("Username / Password matched");
-                    info.req.identity = loginInfo[0];
-                    cb(true, 200, 'Authorized');
-                }
+                checkUser(loginInfo[0]).then(function(hash) {
+                    if(hash == false){
+                        console.log("ERROR Username NOT matched");
+                        cb(false, 401, 'Authorization Required');
+                    }
+                    else if(hash == loginInfo[1]){
+                        console.log("Username and Password matched");
+                        info.req.identity = loginInfo[0];
+                        info.req.hash = loginInfo[1];
+                        cb(true, 200, 'Authorized');
+                    }
+                    else{
+                        console.log("ERROR Password NOT matched");
+                        cb(false, 401, 'Authorization Required');
+                    }
+                });
             }
         }
         else{
             cb(false, 401, 'Unauthorized')
         }
-        
-    },
-    // rejectUnauthorized: false
+    }
 });
 
 // return validate days
@@ -143,8 +173,7 @@ wss.on('connection', function (ws, req) {
                                 console.log("Connected Charger ID: "  + ws.id);
                                 console.log("From client: ", ws.id, ": ", message.toString());
                                 let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
-                                let traRes = JSON.parse(traResRow);
-                                client.send(JSON.stringify(traRes));
+                                client.send(traResRow)
                             }else{
                                 client.send('Certificate is revoked!');
                             }
@@ -167,7 +196,7 @@ wss.on('connection', function (ws, req) {
 });
 
 server.listen(PORT, ()=>{
-    api.initAPI(app);
+    api.initAPI(app, wss);
     ocsp_server.startServer().then(function (cbocsp) {
         var ocsprenewint = 1000 * 60; // 1min
         reocsp = cbocsp;
