@@ -2,37 +2,44 @@ const WebSocketServer = require('ws').Server;
 const fs = require('fs');
 const https = require('https');
 
+const ocsp_server = require('./ocsp_server.js');
+const yaml = require('js-yaml');
+const spawn = require('child_process').spawn;
+const kill = require('tree-kill');
+var reocsp = null;
+global.config = yaml.load(fs.readFileSync('config/config.yml', 'utf8'));
+
 const PORT = 8080;
-var passwd = 'pa$$word' // should be get form db
+const passwd = 'pa$$word' // Should be get form db
 const clients = new Set();
 
-// config the https options
+// Config the https options
 const options = {
-    cert: fs.readFileSync(`${__dirname}/key/server-crt.pem`),
-    key: fs.readFileSync(`${__dirname}/key/server-key.pem`),
+    cert: fs.readFileSync(`${__dirname}/pki/server/certs/server.cert.pem`),
+    key: fs.readFileSync(`${__dirname}/pki/server/private/server.key.pem`),
     ca: [
-      fs.readFileSync(`${__dirname}/key/client-ca-crt.pem`)
+        fs.readFileSync(`${__dirname}/pki/intermediate/certs/ca-chain.cert.pem`)
     ],
     requestCert: true,
     rejectUnauthorized: true,
-    secureProtocol: 'TLS_method',
+    secureProtocol: 'TLS_method', // Allow any TLS protocol version up to TLSv1.3
     ciphers: 'AES128-GCM-SHA256:AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384',
-    ecdhCurve: 'secp521r1:secp384r1',
-    honorCipherOrder: true
+    honorCipherOrder: true // Attempt to use the server's cipher suite preferences instead of the client's.
 }
 
-// create the server
+// Create the server
 const server = new https.createServer(options);
 
-// create the websocket
+// Create the websocket
 const wss = new WebSocketServer({
     server,
     verifyClient: function (info, cb) {
-        // certificactes auth
+        // Certificactes auth
         var success = !!info.req.client.authorized;
-        // basic auth
+        console.log("Certificactes Authorized: ", success);
+        // Basic auth
         if(success){
-            var authentication = Buffer.from(info.req.headers.authorization.replace(/Basic/, '').trim(),'base64').toString('utf-8');
+            var authentication = Buffer.from(info.req.headers.authorization,'base64').toString('utf-8');
             if (!authentication)
                 cb(false, 401, 'Authorization Required');
             else {
@@ -81,7 +88,7 @@ const checkCertificateValidity = (daysRemaining, valid) => {
 };
 
 wss.on('connection', function (ws, request) {
-    // check revoke status of the certificates
+    // Check revoke status of the certificates
     const crt = request.connection.getPeerCertificate();
     const vFrom = crt.valid_from;
     const vTo = crt.valid_to;
@@ -90,10 +97,10 @@ wss.on('connection', function (ws, request) {
     var daysRemaining = getDaysRemaining(new Date(), validTo);
     var valid = request.socket.authorized || false;
 
-    console.log("daysRemaining: ", daysRemaining);
-    console.log("valid: ", valid);
+    console.log("Days Remaining: ", daysRemaining);
+    console.log("Expired: ", !valid);
 
-    // add client to the list
+    // Add client to the list
     clients.add(request.identity);
     ws.id = request.identity;
     console.log("Connected Charger ID: "  + ws.id);
@@ -121,5 +128,67 @@ wss.on('connection', function (ws, request) {
 });
 
 server.listen(PORT, ()=>{
+    ocsp_server.startServer().then(function (cbocsp) {
+        var ocsprenewint = 1000 * 60; // 1min
+        reocsp = cbocsp;
+
+        setInterval(() => {
+            kill(cbocsp.pid, 'SIGKILL', function(err) {
+                if(err){
+                    console.log(err.message);
+                    process.exit();
+                }
+                else{
+                    console.log("Restart the ocsp server..");
+                    cbocsp = spawn('openssl', [
+                        'ocsp',
+                        '-port', global.config.ca.ocsp.port,
+                        '-text',
+                        '-index', 'intermediate/index.txt',
+                        '-CA', 'intermediate/certs/ca-chain.cert.pem',
+                        '-rkey', 'ocsp/private/ocsp.key.pem',
+                        '-rsigner', 'ocsp/certs/ocsp.cert.pem',
+                        '-nmin', '1'
+                     ], {
+                        cwd: __dirname + '/pki/',
+                        detached: true,
+                        shell: true
+                    });
+        
+                    cbocsp.on('error', function(error) {
+                        console.log("OCSP server startup error: " + error);
+                        reject(error);
+                    });
+
+                    reocsp = cbocsp;
+                }
+            });
+
+        }, ocsprenewint);
+
+    })
+    .catch(function(error){
+        console.log("Could not start OCSP server: " + error);
+    });
+
     console.log( (new Date()) + " Server is listening on port " + PORT);
 });
+
+// Server stop routine and events
+var stopServer = function() {
+    console.log("Received termination signal.");
+    console.log("Stopping OCSP server...");
+    kill(reocsp.pid, 'SIGKILL', function(err) {
+        if(err){
+            console.log(err.message);
+        }
+        else{
+            console.log("Server stoped!");
+        }
+        process.exit();
+    });
+};
+
+process.on('SIGINT', stopServer);
+process.on('SIGHUP', stopServer);
+process.on('SIGQUIT', stopServer);

@@ -1,0 +1,59 @@
+ca:
+    root:
+      rootname: 'root'
+      passphrase: 'rootcapass'
+      days: 3650
+      country: 'LK'
+      state: 'WEST'
+      locality: 'COL'
+      organization: 'VEGA'
+      unit: 'CG'
+      commonname: 'ROOT_CA'
+    intermediate:
+      rootname: 'intermediate'
+      chainname: 'ca-chain'
+      passphrase: 'intermediatecapass'
+      days: 365
+      country: 'LK'
+      state: 'WEST'
+      locality: 'COL'
+      organization: 'VEGA'
+      unit: 'CG'
+      commonname: 'INTERMEDIATE_CA'
+    ocsp:
+      rootname: 'intermediate'
+      chainname: 'ca-chain'
+      name: 'ocsp'
+      passphrase: 'ocsppass'
+      days: 3650
+      ip: 127.0.0.1
+      port: 2560
+      country: 'LK'
+      state: 'WEST'
+      locality: 'COL'
+      organization: 'VEGA'
+      unit: 'CG'
+      commonname: 'localhost'
+    server:
+      rootname: 'intermediate'
+      chainname: 'ca-chain'
+      name: 'server'
+      days: 365
+      country: 'LK'
+      state: 'WEST'
+      locality: 'COL'
+      organization: 'VEGA'
+      unit: 'CG'
+      commonname: 'localhost'
+    admin:
+      rootname: 'intermediate'
+      chainname: 'ca-chain'
+      name: 'admin'
+      passphrase: 'adminpass'
+      days: 365
+      country: 'LK'
+      state: 'WEST'
+      locality: 'COL'
+      organization: 'VEGA'
+      unit: 'CG'
+      commonname: 'client.admin'
