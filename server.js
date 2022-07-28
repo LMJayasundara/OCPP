@@ -3,10 +3,10 @@ const fs = require('fs');
 const https = require('https');
 
 const PORT = 8080;
-var passwd = 'pa$$word' // should be get form db
+var passwd = 'pa$$word' // Should be get form db
 const clients = new Set();
 
-// config the https options
+// Config the https options
 const options = {
     cert: fs.readFileSync(`${__dirname}/key/server-crt.pem`),
     key: fs.readFileSync(`${__dirname}/key/server-key.pem`),
@@ -15,24 +15,23 @@ const options = {
     ],
     requestCert: true,
     rejectUnauthorized: true,
-    secureProtocol: 'TLS_method',
+    secureProtocol: 'TLS_method', // Allow any TLS protocol version up to TLSv1.3
     ciphers: 'AES128-GCM-SHA256:AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384',
-    ecdhCurve: 'secp521r1:secp384r1',
-    honorCipherOrder: true
+    honorCipherOrder: true // Attempt to use the server's cipher suite preferences instead of the client's.
 }
 
-// create the server
+// Create the server
 const server = new https.createServer(options);
 
-// create the websocket
+// Create the websocket
 const wss = new WebSocketServer({
     server,
     verifyClient: function (info, cb) {
-        // certificactes auth
+        // Certificactes auth
         var success = !!info.req.client.authorized;
-        // basic auth
+        // Basic auth
         if(success){
-            var authentication = Buffer.from(info.req.headers.authorization.replace(/Basic/, '').trim(),'base64').toString('utf-8');
+            var authentication = Buffer.from(info.req.headers.authorization,'base64').toString('utf-8');
             if (!authentication)
                 cb(false, 401, 'Authorization Required');
             else {
@@ -81,7 +80,7 @@ const checkCertificateValidity = (daysRemaining, valid) => {
 };
 
 wss.on('connection', function (ws, request) {
-    // check revoke status of the certificates
+    // Check revoke status of the certificates
     const crt = request.connection.getPeerCertificate();
     const vFrom = crt.valid_from;
     const vTo = crt.valid_to;
@@ -93,7 +92,7 @@ wss.on('connection', function (ws, request) {
     console.log("daysRemaining: ", daysRemaining);
     console.log("valid: ", valid);
 
-    // add client to the list
+    // Add client to the list
     clients.add(request.identity);
     ws.id = request.identity;
     console.log("Connected Charger ID: "  + ws.id);

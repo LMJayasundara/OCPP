@@ -3,7 +3,7 @@ const fs = require('fs');
 
 const username = "ID_0001";
 const BasicAuthPassword = "pa$$word";
-const URL = "wss://localhost:8080/ocpp";
+const URL = "wss://localhost:8080/";
 var reconn = null;
 
 function startWebsocket() {
@@ -19,7 +19,7 @@ function startWebsocket() {
         rejectUnauthorized: true,
         perMessageDeflate: false,
         headers: {
-            Authorization: 'Basic ' + Buffer.from(username + ':' + BasicAuthPassword).toString('base64'),
+            Authorization: Buffer.from(username + ':' + BasicAuthPassword).toString('base64')
         },
     });
 
@@ -29,7 +29,7 @@ function startWebsocket() {
         let rawdata = fs.readFileSync('./json/TransactionEventRequest.json');
         let sTrans = JSON.parse(rawdata);
         sTrans.eventType = "Started";
-        sTrans.timestamp = Date.now(); // new Date();
+        sTrans.timestamp = Date.now();
 
         ws.send(JSON.stringify(sTrans));
     });
