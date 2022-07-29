@@ -8,6 +8,7 @@ var ocsp = null;
 var startServer = function() {
     return new Promise(function(resolve, reject) {
         console.log("Starting OCSP server...")
+        // Run openssl OCSP server
         ocsp = spawn('openssl', [
             'ocsp',
             '-port', global.config.ca.ocsp.port,

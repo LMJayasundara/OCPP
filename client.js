@@ -1,13 +1,15 @@
+// Import libs
 const WebSocket = require('ws');
 const fs = require('fs-extra');
+const path = require('path');
 
+// Define variables
 const username = "ID002";
 const URL = "wss://localhost:8080/";
 var reconn = null;
-
-const path = require('path');
 const DB_FILE_PATH = path.join('credential.db');
 
+// Check password and by username
 const gethash = function(id) {
     return new Promise(function(resolve, reject) {
         fs.readFile(DB_FILE_PATH, 'utf8', function(err, passFile) {
@@ -28,6 +30,7 @@ const gethash = function(id) {
     });
 };
 
+// Crete new credential.db file when update the client password
 const addUser = function(username, passhash) {
     return new Promise(function(resolve, reject) {
         fs.unlinkSync(DB_FILE_PATH);
@@ -38,9 +41,11 @@ const addUser = function(username, passhash) {
     });
 };
 
+// Start web socket function
 function startWebsocket() {
     gethash(username).then(function(hash) {
         if(hash != false){
+            // Define websocket
             var ws = new WebSocket(URL + "" + username, {
                 key: fs.readFileSync(`${__dirname}/pki/ID002/private/client.key.pem`),
                 cert: fs.readFileSync(`${__dirname}/pki/ID002/certs/client.cert.pem`),
@@ -52,12 +57,15 @@ function startWebsocket() {
                 requestCert: true,
                 rejectUnauthorized: true,
                 perMessageDeflate: false,
+                // Use for basic authentication
                 headers: {
                     Authorization: Buffer.from(username + ':' + hash).toString('base64')
                 },
             });
 
+            // Trigger event when client is connected
             ws.on('open', function() {
+                // Clear reconnecting interval
                 clearInterval(reconn);
 
                 let rawdata = fs.readFileSync('./json/TransactionEventRequest.json');
@@ -68,10 +76,14 @@ function startWebsocket() {
                 ws.send(JSON.stringify(sTrans));
             });
 
+            // Trigger event when server send message
             ws.on('message', function(res) {
 
+                // If msg is in JSON format
                 try {
                     var msg = JSON.parse(res);
+
+                    // Check server events
                     if(msg.topic == "updatepass"){
                         console.log(msg.id, msg.newhash);
                         addUser(msg.id, msg.newhash).then(function(ack) {
@@ -82,17 +94,22 @@ function startWebsocket() {
                     else{
                         console.log(msg);
                     }
+
+                // If msg is not in JSON format
                 } catch (error) {
                     console.log(res.toString());
                 }
                 
             });
 
+            // Error event handler
             ws.on('error', function (err) {
                 console.log(err.message);
             });
 
+            // Close event handler
             ws.on('close', function() {
+                // If cllient in close event reconnect every 5 seconds
                 ws = null;
                 reconn = setTimeout(startWebsocket, 5000);
             });
