@@ -84,11 +84,28 @@ function startWebsocket() {
                     var msg = JSON.parse(res);
 
                     // Check server events
-                    if(msg.topic == "updatepass"){
+                    if(msg.topic == "SetVariablesRequest"){
                         console.log(msg.id, msg.newhash);
                         addUser(msg.id, msg.newhash).then(function(ack) {
-                            if(ack) ws.close();
-                            else console.log("Password not updated"); 
+                            if(ack) {
+                                ws.send(true);
+                                ws.send(
+                                    JSON.stringify({
+                                        topic: "SetVariablesResponse",
+                                        state: "Accepted"
+                                    })
+                                );
+                                ws.close();
+                            }
+                            else {
+                                console.log("Password not updated"); 
+                                ws.send(
+                                    JSON.stringify({
+                                        topic: "SetVariablesResponse",
+                                        state: "Rejected"
+                                    })
+                                );
+                            }
                         });
                     }
                     else{

@@ -211,7 +211,7 @@ var check = function(clients, id, newhash){
                 if(client.id == id){
                     client.send(
                         JSON.stringify({
-                            topic: "updatepass",
+                            topic: "SetVariablesRequest",
                             id: client.id,
                             newhash: newhash
                         })
