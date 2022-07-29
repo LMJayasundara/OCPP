@@ -1,14 +1,17 @@
+// Import libs
 const apipath = '/ocsp';
 const path = require('path');
-const pkidir = path.resolve(__dirname + '/pki/').split(path.sep).join("/")+"/";
 const fs = require('fs-extra');
 const exec = require('child_process').exec;
 const yaml = require('js-yaml');
-global.config = yaml.load(fs.readFileSync('config/config.yml', 'utf8'));
-
-const DB_FILE_PATH = path.join(pkidir, 'db', 'user.db');
 const crypto = require('crypto');
 
+// Define variables
+const pkidir = path.resolve(__dirname + '/pki/').split(path.sep).join("/")+"/";
+const DB_FILE_PATH = path.join(pkidir, 'db', 'user.db');
+global.config = yaml.load(fs.readFileSync('config/config.yml', 'utf8'));
+
+// Create new user key
 const createUserKey = function(username) {
     console.log(">>> Creating a User");
     fs.ensureDirSync(pkidir + username);
@@ -56,6 +59,7 @@ const createUserKey = function(username) {
     });
 };
 
+// Add user credential to the user.db file
 const addUser = function(username, password) {
     return new Promise(function(resolve, reject) {
         // Make sure DB file exists ...
@@ -78,6 +82,7 @@ const addUser = function(username, password) {
     });
 };
 
+// Check if user exist
 const userExists = function(username) {
     return new Promise(function(resolve, reject) {
         // Read existing file
@@ -95,6 +100,7 @@ const userExists = function(username) {
     });    
 };
 
+// Revoke the certificate by using serial number
 const serialRevoke = function(serial) {
     return new Promise(function(resolve, reject) {
         console.log('>>>>>>>>>> Revoke serial ', serial);
@@ -114,6 +120,7 @@ const revokeCertificate = function(serialNumber) {
     });
 };
 
+// Check user password
 const checkUser = function(hash) {
     return new Promise(function(resolve, reject) {
         fs.readFile(DB_FILE_PATH, 'utf8', function(err, passFile) {
@@ -134,6 +141,7 @@ const checkUser = function(hash) {
     });
 };
 
+// Send public and private key pair
 const getPair = function(username) {
     return new Promise(function(resolve, reject) {
         userExists(username).then(function(found){
@@ -152,6 +160,7 @@ const getPair = function(username) {
     });
 };
 
+// Delete user data form the user.db file
 const deluserdb = function(username){
     return new Promise(function(resolve, reject) {
         fs.readFile(DB_FILE_PATH, {encoding: 'utf-8'}, function(err, data) {
@@ -178,6 +187,7 @@ const deluserdb = function(username){
     });
 };
 
+// Update the user password
 const updatepass = function(username, newpass){
     return new Promise(function(resolve, reject) {
         deluserdb(username).then(function(ack){
@@ -193,6 +203,7 @@ const updatepass = function(username, newpass){
     });
 };
 
+// Post updatepass topic to the client
 var check = function(clients, id, newhash){
     return new Promise(function(resolve, rejects){
         if(clients.size != 0){

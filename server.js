@@ -1,32 +1,30 @@
+// Import libs
 const WebSocketServer = require('ws').Server;
 const fs = require('fs');
 const https = require('https');
-
 const ocsp_server = require('./ocsp_server.js');
 const yaml = require('js-yaml');
 const spawn = require('child_process').spawn;
 const kill = require('tree-kill');
-var reocsp = null;
-global.config = yaml.load(fs.readFileSync('config/config.yml', 'utf8'));
-
 var ocsp = require('ocsp');
 var ocspCache = new ocsp.Cache();
-
 var bodyparser = require('body-parser');
 var express = require('express');
 var app = express();
 var api = require('./api.js');
 app.use(bodyparser.json());
 
+// Define variables
+var reocsp = null;
 const PORT = 8080;
-const passwd = 'pa$$word' // Should be get form db
 const onlineclients = new Set();
-
 const path = require('path');
-const pkidir = path.resolve(__dirname + '/pki/').split(path.sep).join("/")+"/";
 const DB_FILE_PATH = path.join(pkidir, 'db', 'user.db');
+const pkidir = path.resolve(__dirname + '/pki/').split(path.sep).join("/")+"/";
+global.config = yaml.load(fs.readFileSync('config/config.yml', 'utf8'));
 
-const checkUser = function(id) {
+// Check user authentication
+const checkAuth = function(id) {
     return new Promise(function(resolve, reject) {
         fs.readFile(DB_FILE_PATH, 'utf8', function(err, passFile) {
             if (err) {
@@ -46,7 +44,7 @@ const checkUser = function(id) {
     });
 };
 
-// Config the https options
+// Config the server options
 const options = {
     cert: fs.readFileSync(`${__dirname}/pki/server/certs/server.cert.pem`),
     key: fs.readFileSync(`${__dirname}/pki/server/private/server.key.pem`),
@@ -60,7 +58,7 @@ const options = {
     honorCipherOrder: true // Attempt to use the server's cipher suite preferences instead of the client's.
 }
 
-// Create the server
+// Create the express-https server
 const server = new https.createServer(options, app);
 
 // Create the websocket
@@ -77,7 +75,7 @@ const wss = new WebSocketServer({
             var loginInfo = authentication.trim().split(':');
             if (!authentication) cb(false, 401, 'Authorization Required');
             else {
-                checkUser(loginInfo[0]).then(function(hash) {
+                checkAuth(loginInfo[0]).then(function(hash) {
                     if(hash == false){
                         console.log("ERROR Username NOT matched");
                         cb(false, 401, 'Authorization Required');
@@ -101,11 +99,12 @@ const wss = new WebSocketServer({
     }
 });
 
-// return validate days
+// Return validate days
 const getDaysBetween = (validFrom, validTo) => {
     return Math.round(Math.abs(+validFrom - +validTo) / 8.64e7);
 };
 
+// Return days remaining
 const getDaysRemaining = (validFrom, validTo) => {
     const daysRemaining = getDaysBetween(validFrom, validTo);
     if (new Date(validTo).getTime() < new Date().getTime()) {
@@ -114,6 +113,7 @@ const getDaysRemaining = (validFrom, validTo) => {
     return daysRemaining;
 };
 
+// Check certificate valid status
 const checkCertificateValidity = (daysRemaining, valid) => {
     let isValid = true;
     try {
@@ -126,9 +126,12 @@ const checkCertificateValidity = (daysRemaining, valid) => {
     return isValid;
 };
 
+// When client connect
 wss.on('connection', function (ws, req) {
+    // Add client id to web socket
     ws.id = req.identity;
 
+    // Get client certificates details
     var cert = req.socket.getPeerCertificate(true);
     var vTo = cert.valid_to;
     var validTo = new Date(vTo);
@@ -137,10 +140,11 @@ wss.on('connection', function (ws, req) {
     console.log("Days Remaining: ", daysRemaining);
     console.log("Expired: ", !valid);
 
-    var cert = req.socket.getPeerCertificate(true);
+    // Get client cert and issuer certificates
     var rawCert = cert.raw;
     var rawIssuer = cert.issuerCertificate.raw;
 
+    // Use for OCSP stapling (Store the client certificate status in cache)
     ocsp.getOCSPURI(rawCert, function(err, uri) {
         if (err) console.log(err);
         var req = ocsp.request.generate(rawCert, rawIssuer);
@@ -152,7 +156,7 @@ wss.on('connection', function (ws, req) {
     });
 
     // Check status of the certificates
-    if(checkCertificateValidity(daysRemaining, valid) == true && !onlineclients.has(req.identity)) {
+    if(checkCertificateValidity(daysRemaining, valid) == true && !onlineclients.has(req.identity)) { // Check client certificate expired or client already connected
         ws.on('message', function incoming(message) {
             // Broadcast message to specific connected client
             wss.clients.forEach(function (client) {
@@ -167,9 +171,10 @@ wss.on('connection', function (ws, req) {
                             console.log(res.type);
                             var status = res.type;
                             if(status == 'good'){
-                                // Add client to the list
+                                // Add client to the online client list
                                 onlineclients.add(req.identity);
 
+                                // Send and resive data
                                 console.log("Connected Charger ID: "  + ws.id);
                                 console.log("From client: ", ws.id, ": ", message.toString());
                                 let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
@@ -183,7 +188,9 @@ wss.on('connection', function (ws, req) {
             });
         });
     
+        // Client disconnected event
         ws.on('close', function () {
+            // Client remove from online client set
             onlineclients.delete(ws.id);
             console.log('Client disconnected '+ ws.id);
             console.log(onlineclients);
@@ -195,12 +202,17 @@ wss.on('connection', function (ws, req) {
 
 });
 
+// Start the server
 server.listen(PORT, ()=>{
+    // init APIs
     api.initAPI(app, wss);
+
+    // Start the OCSP server
     ocsp_server.startServer().then(function (cbocsp) {
         var ocsprenewint = 1000 * 60; // 1min
         reocsp = cbocsp;
 
+        // Restart the OCSP server every 1 min
         setInterval(() => {
             kill(cbocsp.pid, 'SIGKILL', function(err) {
                 if(err){
