@@ -12,6 +12,7 @@ var bodyparser = require('body-parser');
 var express = require('express');
 var app = express();
 var api = require('./api.js');
+var online = require('./online.js');
 app.use(bodyparser.json());
 
 // Define variables
@@ -19,8 +20,8 @@ var reocsp = null;
 const PORT = 8080;
 const onlineclients = new Set();
 const path = require('path');
-const DB_FILE_PATH = path.join(pkidir, 'db', 'user.db');
 const pkidir = path.resolve(__dirname + '/pki/').split(path.sep).join("/")+"/";
+const DB_FILE_PATH = path.join(pkidir, 'db', 'user.db');
 global.config = yaml.load(fs.readFileSync('config/config.yml', 'utf8'));
 
 // Check user authentication
@@ -128,6 +129,8 @@ const checkCertificateValidity = (daysRemaining, valid) => {
 
 // When client connect
 wss.on('connection', function (ws, req) {
+
+    online.onlineAPI(app, ws, wss);
     // Add client id to web socket
     ws.id = req.identity;
 
@@ -174,11 +177,11 @@ wss.on('connection', function (ws, req) {
                                 // Add client to the online client list
                                 onlineclients.add(req.identity);
 
-                                // Send and resive data
-                                console.log("Connected Charger ID: "  + ws.id);
-                                console.log("From client: ", ws.id, ": ", message.toString());
-                                let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
-                                client.send(traResRow)
+                                // // Send and resive data
+                                // console.log("Connected Charger ID: "  + ws.id);
+                                // console.log("From client: ", ws.id, ": ", message.toString());
+                                // let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
+                                // client.send(traResRow)
                             }else{
                                 client.send('Certificate is revoked!');
                             }
@@ -205,7 +208,7 @@ wss.on('connection', function (ws, req) {
 // Start the server
 server.listen(PORT, ()=>{
     // init APIs
-    api.initAPI(app, wss);
+    api.initAPI(app);
 
     // Start the OCSP server
     ocsp_server.startServer().then(function (cbocsp) {

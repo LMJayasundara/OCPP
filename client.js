@@ -4,10 +4,12 @@ const fs = require('fs-extra');
 const path = require('path');
 
 // Define variables
-const username = "ID002";
+const username = "ID001";
 const URL = "wss://localhost:8080/";
 var reconn = null;
 const DB_FILE_PATH = path.join('credential.db');
+
+const wsEvents = require('ws-events');
 
 // Check password and by username
 const gethash = function(id) {
@@ -47,8 +49,8 @@ function startWebsocket() {
         if(hash != false){
             // Define websocket
             var ws = new WebSocket(URL + "" + username, {
-                key: fs.readFileSync(`${__dirname}/pki/ID002/private/client.key.pem`),
-                cert: fs.readFileSync(`${__dirname}/pki/ID002/certs/client.cert.pem`),
+                key: fs.readFileSync(`${__dirname}/pki/ID001/private/client.key.pem`),
+                cert: fs.readFileSync(`${__dirname}/pki/ID001/certs/client.cert.pem`),
 
                 // To enable security option 2, comment out the ca certificate and change the rejectUnauthorized: false
                 ca: [
@@ -62,6 +64,8 @@ function startWebsocket() {
                     Authorization: Buffer.from(username + ':' + hash).toString('base64')
                 },
             });
+
+            const evt = wsEvents(ws);
 
             // Trigger event when client is connected
             ws.on('open', function() {
@@ -83,35 +87,6 @@ function startWebsocket() {
                 try {
                     var msg = JSON.parse(res);
 
-                    // Check server events
-                    if(msg.topic == "SetVariablesRequest"){
-                        console.log(msg.id, msg.newhash);
-                        addUser(msg.id, msg.newhash).then(function(ack) {
-                            if(ack) {
-                                ws.send(true);
-                                ws.send(
-                                    JSON.stringify({
-                                        topic: "SetVariablesResponse",
-                                        state: "Accepted"
-                                    })
-                                );
-                                ws.close();
-                            }
-                            else {
-                                console.log("Password not updated"); 
-                                ws.send(
-                                    JSON.stringify({
-                                        topic: "SetVariablesResponse",
-                                        state: "Rejected"
-                                    })
-                                );
-                            }
-                        });
-                    }
-                    else{
-                        console.log(msg);
-                    }
-
                 // If msg is not in JSON format
                 } catch (error) {
                     console.log(res.toString());
@@ -129,6 +104,24 @@ function startWebsocket() {
                 // If cllient in close event reconnect every 5 seconds
                 ws = null;
                 reconn = setTimeout(startWebsocket, 5000);
+            });
+
+            evt.on('SetVariablesRequest', (data) => {
+                addUser(data.component, data.variable).then(function(ack) {
+                    if(ack) {
+                        console.log("Password updated");
+                        evt.emit('SetVariablesResponse', {
+                            state: "Accepted"
+                        });
+                        ws.close();
+                    }
+                    else {
+                        console.log("Password not updated"); 
+                        evt.emit('SetVariablesResponse', {
+                            state: "Rejected"
+                        });
+                    }
+                });
             });
         }
         else{

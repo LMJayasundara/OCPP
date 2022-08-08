@@ -187,52 +187,9 @@ const deluserdb = function(username){
     });
 };
 
-// Update the user password
-const updatepass = function(username, newpass){
-    return new Promise(function(resolve, reject) {
-        deluserdb(username).then(function(ack){
-            if(ack){
-                addUser(username, newpass).then(function(ack){
-                    resolve(ack);
-                });
-            }
-            else{
-                resolve(false);
-            }
-        });
-    });
-};
-
-// Post updatepass topic to the client
-var check = function(clients, id, newhash){
-    return new Promise(function(resolve, rejects){
-        if(clients.size != 0){
-            clients.forEach(function (client) {
-                if(client.id == id){
-                    client.send(
-                        JSON.stringify({
-                            topic: "SetVariablesRequest",
-                            id: client.id,
-                            newhash: newhash
-                        })
-                    );
-                    resolve(true);
-                }
-                else{
-                    resolve(false);
-                }
-            });
-        }
-        else{
-            resolve(false);
-        }
-    });
-};
-
 /////////////////////////////////////////////////////// Init APIs ///////////////////////////////////////////////////////
 
-const initAPI = function(app, wss) {
-
+const initAPI = function(app) {
     app.post(apipath + '/user/', function(req, res) {
         console.log("Admin is requesting to create a new user:", req.body.name);
 
@@ -304,39 +261,6 @@ const initAPI = function(app, wss) {
                         result: ack
                     });
                 });
-            }
-            else{
-                res.json({
-                    success: "Auth fail"
-                });
-            }
-        });
-    });
-
-    app.post(apipath + '/updatepass/', function(req, res) {
-        console.log("Admin is requesting to update Basic auth password of client " + req.body.username);
-        var newhash = crypto.createHash('sha256').update(req.body.username + ':' + req.body.newpasswd).digest('hex');
-
-        var hash = crypto.createHash('sha256').update(req.body.username + ':' + req.body.passwd).digest('hex');
-        checkUser(hash).then(function(ack){
-            if(ack == true){
-                check(wss.clients, req.body.username, newhash).then(function(ack) {
-                    if(ack){
-                        updatepass(req.body.username, req.body.newpasswd).then(function(ack){
-                            res.json({
-                                success: "true",
-                                result: req.body.username + " Client update password"
-                            });
-                        }); 
-                    }
-                    else{
-                        res.json({
-                            success: "fasle",
-                            result: req.body.username + " Client can not update password"
-                        });
-                    }
-                });
-                
             }
             else{
                 res.json({
