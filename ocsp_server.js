@@ -20,7 +20,7 @@ var startServer = function() {
             '-nmin', '1'
          ], {
             cwd: __dirname + '/pki/',
-            detached: true,
+            detached: false,
             shell: true
         });
 
