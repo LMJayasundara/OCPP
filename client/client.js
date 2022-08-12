@@ -81,16 +81,15 @@ var createClient = function(passphrase) {
 
     return new Promise(function(resolve, reject) {
         // Create key
-        exec('openssl genrsa -aes256 -out private/client.key.pem -passout pass:' + passphrase + ' 4096', {
+        exec('openssl req -config openssl.cnf -new -newkey rsa:2048 -nodes -keyout private/client.key.pem -out csr/client.csr.pem', {
             cwd: 'new'
-        }, function() {
-            // Create request
-            exec('openssl req -config openssl.cnf -new -sha256 -key private/client.key.pem -passin pass:' + passphrase + ' -out csr/client.csr.pem', {
-                cwd: 'new'
-            }, function() {
-                resolve();
-            });
+        }, function(err, stdout, stderr) {
+            console.log("err: ", err);
+            console.log("stdout: ", stdout);
+            console.log("stderr: ", stderr);
+            resolve();
         });
+
     });
 }
 
@@ -236,11 +235,36 @@ function startWebsocket() {
                         console.log("datakey: ", datakey);
                         if(datacert == datakey){
                             console.log("Veryfied");
+                            evt.emit('CertificateSignedResponse', {
+                                status: "Accepted"
+                            });
+
+                            ws.close();
+                            fs.renameSync(`${__dirname}/`+username+`/`, `${__dirname}/OLD/`, function(err) {
+                                if (err) {
+                                  console.log(err)
+                                } else {
+                                  console.log("Successfully renamed the directory.")
+                                }
+                            });
+
+                            const currPath = `${__dirname}/new/`;
+                            const newPath = `${__dirname}/`+username+`/`;
+                            fs.renameSync(currPath, newPath, function(err) {
+                                if (err) {
+                                  console.log(err)
+                                } else {
+                                  console.log("Successfully renamed the directory.")
+                                }
+                            });
                         }
                         else{
                             console.log("Non Veryfied");
+                            evt.emit('CertificateSignedResponse', {
+                                status: "Rejected"
+                            });
                         }
-                    })
+                    });
                 });
             });
 
