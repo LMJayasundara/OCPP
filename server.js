@@ -235,7 +235,7 @@ server.listen(PORT, ()=>{
                         '-nmin', '1'
                      ], {
                         cwd: __dirname + '/pki/',
-                        detached: true,
+                        detached: false,
                         shell: true
                     });
         

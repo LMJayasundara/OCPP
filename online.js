@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const pkidir = path.resolve(__dirname + '/pki/').split(path.sep).join("/")+"/";
 const DB_FILE_PATH = path.join(pkidir, 'db', 'user.db');
 const wsEvents = require('ws-events');
+var exec = require('child_process').exec;
 
 // Delete user data form the user.db file
 const deluserdb = function(username){
@@ -161,6 +162,76 @@ const onlineAPI = function(app, ws, wss) {
                 });
             }
         });
+    });
+
+
+    app.post(apipath + '/updatecertcsms/', function(req, res) {
+        console.log("Admin is requesting to update charging station " + req.body.username + " cert by using CSMS");
+
+        return new Promise(function(resolve, reject) {
+            wss.clients.forEach(function (client) {
+                if(client.id == ws.id){
+                    events.emit('TriggerMessageRequest', {
+                        requestedMessage: "SignChargingStationCertificate"
+                    });
+
+                    events.on('TriggerMessageResponse', (ack) => {
+                        if(ack.state){
+                            // res.json({
+                            //     success: "true",
+                            //     result: req.body.username + " Client update certs"
+                            // });
+
+                            events.on('SignCertificateRequest', (ack) => {
+                                if(ack.csr != null){
+                                    events.emit('SignCertificateResponse', {
+                                        state: "Accepted"
+                                    });
+
+                                    console.log(ack.csr);
+                                    fs.writeFile(pkidir + ws.id + '/csr/new.csr.pem', ack.csr).then(function(){
+                                        return new Promise(function(resolve, reject) {
+                                            // Create certificate
+                                            exec('openssl ca -config openssl.cnf -extensions usr_cert -days 3650 -notext -md sha256 -in csr/new.csr.pem -out certs/new.cert.pem -passin pass:intermediatecapass -batch', {
+                                                cwd: pkidir + ws.id
+                                            }, function(err) {
+                                                console.log("Create Admin Keys Err: ", err);
+                                                resolve();
+                                            });
+                                        }).then(function(){
+                                            events.emit('CertificateSignedRequest', {
+                                                cert: fs.readFileSync(path.join(pkidir + ws.id +'/certs/new.cert.pem'), 'utf8'),
+                                                typeOfCertificate: "ChargingStationCertificate"
+                                            });
+                                        });
+                                        
+                                    });
+                                }
+                                else{
+                                    events.emit('SignCertificateResponse', {
+                                        state: "Rejected"
+                                    });
+                                }
+                                
+                            });
+                        }
+                        else{
+                            res.json({
+                                success: "fasle",
+                                result: req.body.username + " Client can not update certs"
+                            });
+                        }
+                    });
+                }
+                else{
+                    reject();
+                    res.json({
+                        success: "False"
+                    });
+                }
+            });
+        });
+
     });
 
 }
