@@ -204,15 +204,17 @@ const onlineAPI = function(app, ws, wss) {
                                                 typeOfCertificate: "ChargingStationCertificate"
                                             });
                                         });
-                                        
+                                    });
+
+                                    events.on('CertificateSignedResponse', (ack) => {
+                                        console.log(ack.status);
                                     });
                                 }
                                 else{
                                     events.emit('SignCertificateResponse', {
                                         state: "Rejected"
                                     });
-                                }
-                                
+                                } 
                             });
                         }
                         else{
