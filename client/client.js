@@ -11,6 +11,7 @@ const DB_FILE_PATH = path.join('credential.db');
 
 const wsEvents = require('ws-events');
 var exec = require('child_process').exec;
+const crypto = require('crypto');
 
 // Check password and by username
 const gethash = function(id) {
@@ -74,7 +75,7 @@ var createClient = function(passphrase) {
     openssl_client = openssl_client.replace(/{locality}/g, locality);
     openssl_client = openssl_client.replace(/{organization}/g, organization);
     openssl_client = openssl_client.replace(/{unit}/g, unit);
-    openssl_client = openssl_client.replace(/{commonname}/g, "ID001_1");
+    openssl_client = openssl_client.replace(/{commonname}/g, "ID001_33");
     fs.writeFileSync('new/openssl.cnf', openssl_client);
 
     console.log(">>> Creating Client Keys");
@@ -91,7 +92,7 @@ var createClient = function(passphrase) {
         });
 
     });
-}
+};
 
 // Start web socket function
 function startWebsocket() {
@@ -119,6 +120,20 @@ function startWebsocket() {
 
             // Trigger event when client is connected
             ws.on('open', function() {
+
+                checkCert().then(function(daysRemaining){
+                    // console.log(daysRemaining);
+                    if(daysRemaining <= 30){
+                        passphrase = "adminpass";
+                        createClient(passphrase).then(function(){
+                            evt.emit('SignCertificateRequest', {
+                                csr: fs.readFileSync(path.join('new/csr/client.csr.pem'), 'utf8'),
+                                typeOfCertificate: "ChargingStationCertificate"
+                            });
+                        });
+                    }
+                });
+
                 // Clear reconnecting interval
                 clearInterval(reconn);
 
@@ -277,5 +292,33 @@ function startWebsocket() {
         }
     });
 }
+
+const { validateSSLCert } = require('ssl-validator');
+
+// Return validate days
+const getDaysBetween = (validFrom, validTo) => {
+    return Math.round(Math.abs(+validFrom - +validTo) / 8.64e7);
+};
+
+// Return days remaining
+const getDaysRemaining = (validFrom, validTo) => {
+    const daysRemaining = getDaysBetween(validFrom, validTo);
+    if (new Date(validTo).getTime() < new Date().getTime()) {
+        return -daysRemaining;
+    }
+    return daysRemaining;
+};
+
+function checkCert(){
+    return new Promise(function(resolve, reject) {
+        var certificate = fs.readFileSync(`${__dirname}/ID001/certs/client.cert.pem`);
+
+        validateSSLCert(certificate).then(function(data){
+            var validTo = new Date(data.validity.end);
+            var daysRemaining = getDaysRemaining(new Date(), validTo);
+            resolve(daysRemaining);
+        });
+    });
+};
 
 startWebsocket();

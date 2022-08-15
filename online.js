@@ -192,7 +192,7 @@ const onlineAPI = function(app, ws, wss) {
                                     fs.writeFile(pkidir + ws.id + '/csr/new.csr.pem', ack.csr).then(function(){
                                         return new Promise(function(resolve, reject) {
                                             // Create certificate
-                                            exec('openssl ca -config openssl.cnf -extensions usr_cert -days 3650 -notext -md sha256 -in csr/new.csr.pem -out certs/new.cert.pem -passin pass:intermediatecapass -batch', {
+                                            exec('openssl ca -config openssl.cnf -extensions usr_cert -days 365 -notext -md sha256 -in csr/new.csr.pem -out certs/new.cert.pem -passin pass:intermediatecapass -batch', {
                                                 cwd: pkidir + ws.id
                                             }, function(err) {
                                                 console.log("Create Admin Keys Err: ", err);
@@ -236,7 +236,42 @@ const onlineAPI = function(app, ws, wss) {
 
     });
 
-}
+
+    events.on('SignCertificateRequest', (ack) => {
+        if(ack.csr != null){
+            events.emit('SignCertificateResponse', {
+                state: "Accepted"
+            });
+
+            console.log(ack.csr);
+            fs.writeFile(pkidir + ws.id + '/csr/new.csr.pem', ack.csr).then(function(){
+                return new Promise(function(resolve, reject) {
+                    // Create certificate
+                    exec('openssl ca -config openssl.cnf -extensions usr_cert -days 365 -notext -md sha256 -in csr/new.csr.pem -out certs/new.cert.pem -passin pass:intermediatecapass -batch', {
+                        cwd: pkidir + ws.id
+                    }, function(err) {
+                        console.log("Create Admin Keys Err: ", err);
+                        resolve();
+                    });
+                }).then(function(){
+                    events.emit('CertificateSignedRequest', {
+                        cert: fs.readFileSync(path.join(pkidir + ws.id +'/certs/new.cert.pem'), 'utf8'),
+                        typeOfCertificate: "ChargingStationCertificate"
+                    });
+                });
+            });
+
+            events.on('CertificateSignedResponse', (ack) => {
+                console.log(ack.status);
+            });
+        }
+        else{
+            events.emit('SignCertificateResponse', {
+                state: "Rejected"
+            });
+        } 
+    });
+};
 
 module.exports = {
     onlineAPI
