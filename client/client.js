@@ -276,11 +276,22 @@ function startWebsocket() {
                         else{
                             console.log("Non Veryfied");
                             evt.emit('CertificateSignedResponse', {
-                                status: "Rejected"
+                                type: "Rejected",
+                                type
                             });
                         }
                     });
                 });
+            });
+
+            // A04 - Security Event Notification
+            evt.emit('SecurityEventNotificationRequest', {
+                state: "FailedToAuthenticateAtCsms",
+                timestamp: new Date()
+            });
+
+            evt.on('CertificateSignedResponse', (data) => {
+                console.log(data);
             });
 
         }
