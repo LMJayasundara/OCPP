@@ -1,0 +1,2 @@
+Client key Folder, ex "ID001"
+"ca-chain.cert.pem" Key
