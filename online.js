@@ -271,6 +271,13 @@ const onlineAPI = function(app, ws, wss) {
             });
         } 
     });
+
+    // A04 - Security Event Notification
+    events.on('SecurityEventNotificationRequest', (ack) => {
+        events.emit('SecurityEventNotificationResponse', {
+            state: ack.state
+        });
+    });
 };
 
 module.exports = {
