@@ -182,40 +182,40 @@ const onlineAPI = function(app, ws, wss) {
                             //     result: req.body.username + " Client update certs"
                             // });
 
-                            events.on('SignCertificateRequest', (ack) => {
-                                if(ack.csr != null){
-                                    events.emit('SignCertificateResponse', {
-                                        state: "Accepted"
-                                    });
+                            // events.on('SignCertificateRequest', (ack) => {
+                            //     if(ack.csr != null){
+                            //         events.emit('SignCertificateResponse', {
+                            //             state: "Accepted"
+                            //         });
 
-                                    console.log(ack.csr);
-                                    fs.writeFile(pkidir + ws.id + '/csr/new.csr.pem', ack.csr).then(function(){
-                                        return new Promise(function(resolve, reject) {
-                                            // Create certificate
-                                            exec('openssl ca -config openssl.cnf -extensions usr_cert -days 365 -notext -md sha256 -in csr/new.csr.pem -out certs/new.cert.pem -passin pass:intermediatecapass -batch', {
-                                                cwd: pkidir + ws.id
-                                            }, function(err) {
-                                                console.log("Create Admin Keys Err: ", err);
-                                                resolve();
-                                            });
-                                        }).then(function(){
-                                            events.emit('CertificateSignedRequest', {
-                                                cert: fs.readFileSync(path.join(pkidir + ws.id +'/certs/new.cert.pem'), 'utf8'),
-                                                typeOfCertificate: "ChargingStationCertificate"
-                                            });
-                                        });
-                                    });
+                            //         console.log(ack.csr);
+                            //         fs.writeFile(pkidir + ws.id + '/csr/new.csr.pem', ack.csr).then(function(){
+                            //             return new Promise(function(resolve, reject) {
+                            //                 // Create certificate
+                            //                 exec('openssl ca -config openssl.cnf -extensions usr_cert -days 365 -notext -md sha256 -in csr/new.csr.pem -out certs/new.cert.pem -passin pass:intermediatecapass -batch', {
+                            //                     cwd: pkidir + ws.id
+                            //                 }, function(err) {
+                            //                     console.log("Create Admin Keys Err: ", err);
+                            //                     resolve();
+                            //                 });
+                            //             }).then(function(){
+                            //                 events.emit('CertificateSignedRequest', {
+                            //                     cert: fs.readFileSync(path.join(pkidir + ws.id +'/certs/new.cert.pem'), 'utf8'),
+                            //                     typeOfCertificate: "ChargingStationCertificate"
+                            //                 });
+                            //             });
+                            //         });
 
-                                    events.on('CertificateSignedResponse', (ack) => {
-                                        console.log(ack.status);
-                                    });
-                                }
-                                else{
-                                    events.emit('SignCertificateResponse', {
-                                        state: "Rejected"
-                                    });
-                                } 
-                            });
+                            //         events.on('CertificateSignedResponse', (ack) => {
+                            //             console.log(ack.status);
+                            //         });
+                            //     }
+                            //     else{
+                            //         events.emit('SignCertificateResponse', {
+                            //             state: "Rejected"
+                            //         });
+                            //     } 
+                            // });
                         }
                         else{
                             res.json({
