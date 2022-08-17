@@ -1,4 +1,5 @@
 npm gen.js
+run node server using ``` node server.js ```
 create new client using Postman
 Copy client folder and "ca-chain.cert.pem" and credential.db files to the "client" folder
 node server.js
