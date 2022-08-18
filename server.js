@@ -182,6 +182,7 @@ wss.on('connection', function (ws, req) {
                                 // console.log("From client: ", ws.id, ": ", message.toString());
                                 // let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
                                 // client.send(traResRow)
+                                client.send("Connected to the server");
                             }else{
                                 client.send('Certificate is revoked!');
                             }
