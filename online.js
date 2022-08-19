@@ -115,7 +115,7 @@ const checkUser = function(hash) {
 };
 
 const onlineAPI = function(app, ws, wss) {
-    const events = wsEvents(ws);
+    var events = wsEvents(ws);
 
     app.post(apipath + '/updatepass/', function(req, res) {
         console.log("Admin is requesting to update Basic auth password of client " + req.body.username);
@@ -164,9 +164,12 @@ const onlineAPI = function(app, ws, wss) {
         });
     });
 
-
     app.post(apipath + '/updatecertcsms/', function(req, res) {
         console.log("Admin is requesting to update charging station " + req.body.username + " cert by using CSMS");
+        // res.json({
+        //     success: "true",
+        //     result: req.body.username + " Client update certs"
+        // });
 
         return new Promise(function(resolve, reject) {
             wss.clients.forEach(function (client) {
@@ -182,60 +185,76 @@ const onlineAPI = function(app, ws, wss) {
                             //     result: req.body.username + " Client update certs"
                             // });
 
-                            // events.on('SignCertificateRequest', (ack) => {
-                            //     if(ack.csr != null){
-                            //         events.emit('SignCertificateResponse', {
-                            //             state: "Accepted"
-                            //         });
+                            events.on('SignCertificateRequest', (ack) => {
+                                if(ack.csr != null){
+                                    events.emit('SignCertificateResponse', {
+                                        state: "Accepted"
+                                    });
 
-                            //         console.log(ack.csr);
-                            //         fs.writeFile(pkidir + ws.id + '/csr/new.csr.pem', ack.csr).then(function(){
-                            //             return new Promise(function(resolve, reject) {
-                            //                 // Create certificate
-                            //                 exec('openssl ca -config openssl.cnf -extensions usr_cert -days 365 -notext -md sha256 -in csr/new.csr.pem -out certs/new.cert.pem -passin pass:intermediatecapass -batch', {
-                            //                     cwd: pkidir + ws.id
-                            //                 }, function(err) {
-                            //                     console.log("Create Admin Keys Err: ", err);
-                            //                     resolve();
-                            //                 });
-                            //             }).then(function(){
-                            //                 events.emit('CertificateSignedRequest', {
-                            //                     cert: fs.readFileSync(path.join(pkidir + ws.id +'/certs/new.cert.pem'), 'utf8'),
-                            //                     typeOfCertificate: "ChargingStationCertificate"
-                            //                 });
-                            //             });
-                            //         });
-
-                            //         events.on('CertificateSignedResponse', (ack) => {
-                            //             console.log(ack.status);
-                            //         });
-                            //     }
-                            //     else{
-                            //         events.emit('SignCertificateResponse', {
-                            //             state: "Rejected"
-                            //         });
-                            //     } 
-                            // });
+                                    console.log(ack.csr);
+                                    fs.writeFile(pkidir + ws.id + '/csr/new.csr.pem', ack.csr).then(async function(){
+                                        return new Promise(function(resolve, reject) {
+                                            // Create certificate
+                                            exec('openssl ca -config openssl.cnf -extensions usr_cert -days 365 -notext -md sha256 -in csr/new.csr.pem -out certs/new.cert.pem -passin pass:intermediatecapass -batch', {
+                                                cwd: pkidir + ws.id
+                                            }, function(err) {
+                                                console.log("Create Admin Keys Err: ", err);
+                                                resolve();
+                                            });
+                                        }).then(function(){
+                                            events.emit('CertificateSignedRequest', {
+                                                cert: fs.readFileSync(path.join(pkidir + ws.id +'/certs/new.cert.pem'), 'utf8'),
+                                                typeOfCertificate: "ChargingStationCertificate"
+                                            });
+                                            resolve();
+                                        });
+                                    });
+                                }
+                                else{
+                                    events.emit('SignCertificateResponse', {
+                                        state: "Rejected"
+                                    });
+                                    res.json({
+                                        success: "fasle",
+                                        result: req.body.username + " Client can not update certs"
+                                    });
+                                    reject();
+                                }
+                            });
                         }
                         else{
                             res.json({
                                 success: "fasle",
                                 result: req.body.username + " Client can not update certs"
                             });
+                            reject();
                         }
+                    });
+
+                    res.json({
+                        success: "true",
+                        result: req.body.username + " Client update certs"
                     });
                 }
                 else{
-                    reject();
                     res.json({
                         success: "False"
                     });
+                    reject();
                 }
             });
         });
-
     });
 
+
+    events.on('CertificateSignedResponse', (ack) => {
+        console.log("xxxxxxxxxxx", ack.status);
+
+        // xx.json({
+        //     success: "true",
+        //     result: req.body.username + " Client update certs"
+        // });
+    });
 
     events.on('SignCertificateRequest', (ack) => {
         if(ack.csr != null){

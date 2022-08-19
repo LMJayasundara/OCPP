@@ -62,7 +62,7 @@ localityName                    = {locality}
 0.organizationName              = {organization}
 organizationalUnitName          = {unit}
 commonName                      = {commonname}
-emailAddress                    = {name}@email.com
+emailAddress                    = {commonname}@email.com
 
 [ v3_ca ]
 subjectKeyIdentifier = hash

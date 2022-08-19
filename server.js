@@ -17,6 +17,7 @@ app.use(bodyparser.json());
 
 // Define variables
 var reocsp = null;
+// var wss = null
 const PORT = 8080;
 const onlineclients = new Set();
 const path = require('path');
@@ -63,42 +64,45 @@ const options = {
 const server = new https.createServer(options, app);
 
 // Create the websocket
-const wss = new WebSocketServer({
-    server,
-    rejectUnauthorized: true,
-    verifyClient: function (info, cb) {
-        // Certificactes auth
-        var success = !!info.req.client.authorized;
-        console.log("Certificactes Authorized: ", success);
-        // Basic auth
-        if(success){
-            var authentication = Buffer.from(info.req.headers.authorization,'base64').toString('utf-8');
-            var loginInfo = authentication.trim().split(':');
-            if (!authentication) cb(false, 401, 'Authorization Required');
-            else {
-                checkAuth(loginInfo[0]).then(function(hash) {
-                    if(hash == false){
-                        console.log("ERROR Username NOT matched");
-                        cb(false, 401, 'Authorization Required');
-                    }
-                    else if(hash == loginInfo[1]){
-                        console.log("Username and Password matched");
-                        info.req.identity = loginInfo[0];
-                        info.req.hash = loginInfo[1];
-                        cb(true, 200, 'Authorized');
-                    }
-                    else{
-                        console.log("ERROR Password NOT matched");
-                        cb(false, 401, 'Authorization Required');
-                    }
-                });
+// function initWebSocket() { 
+    var wss = new WebSocketServer({
+        server,
+        rejectUnauthorized: true,
+        verifyClient: function (info, cb) {
+            // Certificactes auth
+            var success = !!info.req.client.authorized;
+            console.log("Certificactes Authorized: ", success);
+            // Basic auth
+            if(success){
+                var authentication = Buffer.from(info.req.headers.authorization,'base64').toString('utf-8');
+                var loginInfo = authentication.trim().split(':');
+                if (!authentication) cb(false, 401, 'Authorization Required');
+                else {
+                    checkAuth(loginInfo[0]).then(function(hash) {
+                        if(hash == false){
+                            console.log("ERROR Username NOT matched");
+                            cb(false, 401, 'Authorization Required');
+                        }
+                        else if(hash == loginInfo[1]){
+                            console.log("Username and Password matched");
+                            info.req.identity = loginInfo[0];
+                            info.req.hash = loginInfo[1];
+                            cb(true, 200, 'Authorized');
+                        }
+                        else{
+                            console.log("ERROR Password NOT matched");
+                            cb(false, 401, 'Authorization Required');
+                        }
+                    });
+                }
+            }
+            else{
+                cb(false, 401, 'Unauthorized')
             }
         }
-        else{
-            cb(false, 401, 'Unauthorized')
-        }
-    }
-});
+    });
+//     return wss;
+// };
 
 // Return validate days
 const getDaysBetween = (validFrom, validTo) => {
@@ -127,135 +131,106 @@ const checkCertificateValidity = (daysRemaining, valid) => {
     return isValid;
 };
 
+// wss = initWebSocket();
+
 // When client connect
-wss.on('connection', function (ws, req) {
+// (async function () {
+    wss.on('connection', function (ws, req) {
 
-    online.onlineAPI(app, ws, wss);
-    // Add client id to web socket
-    ws.id = req.identity;
+        // online.onlineAPI(app, ws, wss);
+        // Add client id to web socket
+        ws.id = req.identity;
 
-    // Get client certificates details
-    var cert = req.socket.getPeerCertificate(true);
-    var vTo = cert.valid_to;
-    var validTo = new Date(vTo);
-    var daysRemaining = getDaysRemaining(new Date(), validTo);
-    var valid = req.socket.authorized || false;
-    console.log("Days Remaining: ", daysRemaining);
-    console.log("Expired: ", !valid);
+        // Get client certificates details
+        var cert = req.socket.getPeerCertificate(true);
+        var vTo = cert.valid_to;
+        var validTo = new Date(vTo);
+        var daysRemaining = getDaysRemaining(new Date(), validTo);
+        var valid = req.socket.authorized || false;
+        console.log("Days Remaining: ", daysRemaining);
+        console.log("Expired: ", !valid);
 
-    // Get client cert and issuer certificates
-    var rawCert = cert.raw;
-    var rawIssuer = cert.issuerCertificate.raw;
+        // Get client cert and issuer certificates
+        var rawCert = cert.raw;
+        var rawIssuer = cert.issuerCertificate.raw;
 
-    // Use for OCSP stapling (Store the client certificate status in cache)
-    ocsp.getOCSPURI(rawCert, function(err, uri) {
-        if (err) console.log(err);
-        var req = ocsp.request.generate(rawCert, rawIssuer);
-        var options = {
-            url: uri,
-            ocsp: req.data
-        };
-        ocspCache.request(req.id, options, null);
-    });
+        // Use for OCSP stapling (Store the client certificate status in cache)
+        ocsp.getOCSPURI(rawCert, function(err, uri) {
+            if (err) console.log(err);
+            var req = ocsp.request.generate(rawCert, rawIssuer);
+            var options = {
+                url: uri,
+                ocsp: req.data
+            };
+            ocspCache.request(req.id, options, null);
+        });
 
-    // Check status of the certificates
-    if(checkCertificateValidity(daysRemaining, valid) == true && !onlineclients.has(req.identity)) { // Check client certificate expired or client already connected
-        ws.on('message', function incoming(message) {
-            // Broadcast message to specific connected client
-            wss.clients.forEach(function (client) {
-                // console.log(ocspCache.cache);
-                if(client.id == req.identity){
-                    // Check revoke status of the certificates
-                    ocsp.check({cert: rawCert, issuer: rawIssuer}, function(err, res) {
-                        if(err) {
-                            console.log(err.message);
-                            client.send('Failed to obtain OCSP response!');
-                        } else {
-                            console.log(res.type);
-                            var status = res.type;
-                            if(status == 'good'){
-                                // Add client to the online client list
-                                onlineclients.add(req.identity);
+        // Check status of the certificates
+        if(checkCertificateValidity(daysRemaining, valid) == true && !onlineclients.has(req.identity)) { // Check client certificate expired or client already connected
+            ws.on('message', function incoming(message) {
+                // online.onlineAPI(app, ws, wss);
 
-                                // // Send and resive data
-                                // console.log("Connected Charger ID: "  + ws.id);
-                                // console.log("From client: ", ws.id, ": ", message.toString());
-                                // let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
-                                // client.send(traResRow)
-                                client.send("Connected to the server");
-                            }else{
-                                client.send('Certificate is revoked!');
-                            }
-                        }                              
-                    });
-                };
+                // Broadcast message to specific connected client
+                wss.clients.forEach(function (client) {
+                    // console.log(ocspCache.cache);
+                    if(client.id == req.identity){
+                        // Check revoke status of the certificates
+                        ocsp.check({cert: rawCert, issuer: rawIssuer}, function(err, res) {
+                            if(err) {
+                                console.log(err.message);
+                                client.send('Failed to obtain OCSP response!');
+                            } else {
+                                console.log(res.type);
+                                var status = res.type;
+                                if(status == 'good'){
+                                    // Add client to the online client list
+                                    onlineclients.add(req.identity);
+                                    online.onlineAPI(app, ws, wss);
+
+                                    // // Send and resive data
+                                    // console.log("Connected Charger ID: "  + ws.id);
+                                    // console.log("From client: ", ws.id, ": ", message.toString());
+                                    // let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
+                                    // client.send(traResRow)
+                                    client.send("Connected to the server");
+                                }else{
+                                    client.send('Certificate is revoked!');
+                                }
+                            }                              
+                        });
+                    };
+
+                    // // Client disconnected event
+                    // client.on('close', function () {
+                    //     // Client remove from online client set
+                    //     onlineclients.delete(ws.id);
+                    //     console.log('Client disconnected '+ ws.id);
+                    //     console.log(onlineclients);
+                    // });
+                });
             });
-        });
-    
-        // Client disconnected event
-        ws.on('close', function () {
-            // Client remove from online client set
-            onlineclients.delete(ws.id);
-            console.log('Client disconnected '+ ws.id);
-            console.log(onlineclients);
-        });
-    }
-    else{
-        ws.send("Client already connected!")
-    }
+        
+            // Client disconnected event
+            ws.on('close', function () {
+                // Client remove from online client set
+                onlineclients.delete(ws.id);
+                console.log('Client disconnected '+ ws.id);
+                console.log(onlineclients);
+                restartServer();
+            });
+        }
+        else{
+            ws.send("Client already connected!")
+        }
 
-});
+    });
+// })();
 
 // Start the server
 server.listen(PORT, ()=>{
     // init APIs
     api.initAPI(app);
-
-    // Start the OCSP server
-    ocsp_server.startServer().then(function (cbocsp) {
-        var ocsprenewint = 1000 * 60; // 1min
-        reocsp = cbocsp;
-
-        // Restart the OCSP server every 1 min
-        setInterval(() => {
-            kill(cbocsp.pid, 'SIGKILL', function(err) {
-                if(err){
-                    console.log(err.message);
-                    process.exit();
-                }
-                else{
-                    console.log("Restart the ocsp server..");
-                    cbocsp = spawn('openssl', [
-                        'ocsp',
-                        '-port', global.config.ca.ocsp.port,
-                        '-text',
-                        '-index', 'intermediate/index.txt',
-                        '-CA', 'intermediate/certs/ca-chain.cert.pem',
-                        '-rkey', 'ocsp/private/ocsp.key.pem',
-                        '-rsigner', 'ocsp/certs/ocsp.cert.pem',
-                        '-nmin', '1'
-                     ], {
-                        cwd: __dirname + '/pki/',
-                        detached: false,
-                        shell: true
-                    });
-        
-                    cbocsp.on('error', function(error) {
-                        console.log("OCSP server startup error: " + error);
-                        reject(error);
-                    });
-
-                    reocsp = cbocsp;
-                }
-            });
-
-        }, ocsprenewint);
-
-    })
-    .catch(function(error){
-        console.log("Could not start OCSP server: " + error);
-    });
-
+    restartServer();
     console.log( (new Date()) + " Server is listening on port " + PORT);
 });
 
@@ -273,6 +248,55 @@ var stopServer = function() {
         process.exit();
     });
 };
+
+var restartServer = function() {
+    // Start the OCSP server
+    ocsp_server.startServer().then(function (cbocsp) {
+        var ocsprenewint = 1000 * 60; // 1min
+        reocsp = cbocsp;
+        // Restart the OCSP server every 1 min
+        setInterval(() => {
+            try {
+                kill(cbocsp.pid, 'SIGKILL', function() { // err
+                    // if(err){
+                    //     console.log(err.message);
+                    //     // process.exit();
+                    // }
+                    // else{
+                    console.log("Restart the ocsp server..");
+                    cbocsp = spawn('openssl', [
+                        'ocsp',
+                        '-port', global.config.ca.ocsp.port,
+                        '-text',
+                        '-index', 'intermediate/index.txt',
+                        '-CA', 'intermediate/certs/ca-chain.cert.pem',
+                        '-rkey', 'ocsp/private/ocsp.key.pem',
+                        '-rsigner', 'ocsp/certs/ocsp.cert.pem',
+                        '-nmin', '1'
+                    ], {
+                        cwd: __dirname + '/pki/',
+                        detached: false,
+                        shell: true
+                    });
+        
+                    cbocsp.on('error', function(error) {
+                        console.log("OCSP server startup error: " + error);
+                        reject(error);
+                    });
+
+                    reocsp = cbocsp;
+                    // }
+                });    
+            } catch (error) {
+                console.log(error.message);
+                restartServer();
+            }
+        }, ocsprenewint);
+    })
+    .catch(function(error){
+        console.log("Could not start OCSP server: " + error);
+    });
+}
 
 process.on('SIGINT', stopServer);
 process.on('SIGHUP', stopServer);
