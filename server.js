@@ -137,7 +137,6 @@ const checkCertificateValidity = (daysRemaining, valid) => {
 // (async function () {
     wss.on('connection', function (ws, req) {
 
-        // online.onlineAPI(app, ws, wss);
         // Add client id to web socket
         ws.id = req.identity;
 
@@ -165,10 +164,12 @@ const checkCertificateValidity = (daysRemaining, valid) => {
             ocspCache.request(req.id, options, null);
         });
 
+        // online.onlineAPI(app, ws, wss);
+
         // Check status of the certificates
         if(checkCertificateValidity(daysRemaining, valid) == true && !onlineclients.has(req.identity)) { // Check client certificate expired or client already connected
             ws.on('message', function incoming(message) {
-                // online.onlineAPI(app, ws, wss);
+                online.onlineAPI(app, ws, wss);
 
                 // Broadcast message to specific connected client
                 wss.clients.forEach(function (client) {
@@ -185,7 +186,7 @@ const checkCertificateValidity = (daysRemaining, valid) => {
                                 if(status == 'good'){
                                     // Add client to the online client list
                                     onlineclients.add(req.identity);
-                                    online.onlineAPI(app, ws, wss);
+                                    // online.onlineAPI(app, ws, wss);
 
                                     // // Send and resive data
                                     // console.log("Connected Charger ID: "  + ws.id);
@@ -220,6 +221,7 @@ const checkCertificateValidity = (daysRemaining, valid) => {
             });
         }
         else{
+            online.onlineAPI(app, ws, wss);
             ws.send("Client already connected!")
         }
 
