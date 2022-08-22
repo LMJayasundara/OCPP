@@ -37,11 +37,14 @@ const gethash = function(id) {
 // Crete new credential.db file when update the client password
 const addUser = function(username, passhash) {
     return new Promise(function(resolve, reject) {
-        fs.unlinkSync(DB_FILE_PATH);
-        fs.ensureFileSync(DB_FILE_PATH);
-        passfile = username + ':' + passhash +'\n';
-        fs.writeFileSync(DB_FILE_PATH, passfile, 'utf8');
-        resolve(true);
+        fs.unlink(DB_FILE_PATH).then(()=>{
+            fs.ensureFile(DB_FILE_PATH).then(()=>{
+                passfile = username + ':' + passhash +'\n';
+                fs.writeFile(DB_FILE_PATH, passfile, 'utf8').then(()=>{
+                    resolve(true);
+                });
+            });
+        });
     });
 };
 
@@ -117,7 +120,7 @@ function startWebsocket() {
                 },
             });
 
-            const evt = wsEvents(ws);
+            var evt = wsEvents(ws);
 
             // Trigger event when client is connected
             ws.on('open', function() {
@@ -168,41 +171,20 @@ function startWebsocket() {
             // Close event handler
             ws.on('close', function(code) {
                 // If cllient in close event reconnect every 5 seconds
-
-                if(code == 3005){
-                    var newdir = "ID001_"+Date.now();
-                    fs.renameSync(`${__dirname+"\\"+username}`, `${__dirname+"\\"+newdir}`, function(err) {
-                        if (err) {
-                          console.log(err)
-                        } else {
-                          console.log("Successfully renamed the directory.")
-                        }
-                    });
-
-                    const currPath = `${__dirname+"\\new"}`;
-                    const newPath = `${__dirname+"\\"+username}`;
-                    fs.renameSync(currPath, newPath, function(err) {
-                        if (err) {
-                          console.log(err)
-                        } else {
-                          console.log("Successfully renamed the directory.")
-                        }
-                    });
-                }
-
-                // ws.emit('close');
                 ws = null;
-                reconn = setTimeout(startWebsocket, 5000);    
+                evt = null;
+                reconn = setTimeout(startWebsocket, 5000);
             });
 
             evt.on('SetVariablesRequest', (data) => {
+                console.log("SetVariablesRequest event");
                 addUser(data.component, data.variable).then(function(ack) {
                     if(ack) {
                         console.log("Password updated");
                         evt.emit('SetVariablesResponse', {
                             state: "Accepted"
                         });
-                        ws.close();
+
                     }
                     else {
                         console.log("Password not updated"); 
@@ -211,6 +193,28 @@ function startWebsocket() {
                         });
                     }
                 });
+
+                // async function parallel() {
+                //     await Promise.all([
+                //       (async () => await addUser(data.component, data.variable).then(function(ack){
+                //         if(ack) {
+                //             console.log("Password updated");
+                //             evt.emit('SetVariablesResponse', {
+                //                 state: "Accepted"
+                //             });
+    
+                //         }
+                //         else {
+                //             console.log("Password not updated"); 
+                //             evt.emit('SetVariablesResponse', {
+                //                 state: "Rejected"
+                //             });
+                //         }
+                //       })
+                //       )()
+                //     ]);
+                // }
+                // parallel();
             });
 
             evt.on('TriggerMessageRequest', (data) => {
@@ -233,8 +237,6 @@ function startWebsocket() {
                     });
                 }
             });
-
-            const clientdir = path.resolve(__dirname + '/client/').split(path.sep).join("/")+"/";
 
             evt.on('CertificateSignedRequest', (data) => {
                 console.log(data.cert);
@@ -278,13 +280,64 @@ function startWebsocket() {
                                 status: "Accepted"
                             });
 
-                            ws.close(3005);
+                            function fileHandler(){
+                                return new Promise((resolve) => {
+                                    var newdir = "ID001_"+Date.now();
+                                    fs.renameSync(`${__dirname+"\\"+username}`, `${__dirname+"\\"+newdir}`, function(err) {
+                                        if (err) {
+                                        console.log(err)
+                                        } else {
+                                        console.log("Successfully renamed the directory.")
+                                        }
+                                    });
+        
+                                    const currPath = `${__dirname+"\\new"}`;
+                                    const newPath = `${__dirname+"\\"+username}`;
+                                    fs.renameSync(currPath, newPath, function(err) {
+                                        if (err) {
+                                        console.log(err)
+                                        } else {
+                                        console.log("Successfully renamed the directory.")
+                                        }
+                                    });
+
+                                    resolve("fileHandler")
+                                });
+                            };
+                            
+                            async function asyncFunc() {
+                                console.log("async function");
+                                await Promise.all([
+                                  (async () => console.log(await fileHandler()))()
+                                ]);
+                            };
+
+                            asyncFunc();
+
+                            // var newdir = "ID001_"+Date.now();
+                            // fs.renameSync(`${__dirname+"\\"+username}`, `${__dirname+"\\"+newdir}`, function(err) {
+                            //     if (err) {
+                            //         console.log(err)
+                            //     } else {
+                            //         console.log("Successfully renamed the directory.")
+                            //     }
+                            // });
+
+                            // const currPath = `${__dirname+"\\new"}`;
+                            // const newPath = `${__dirname+"\\"+username}`;
+                            // fs.renameSync(currPath, newPath, function(err) {
+                            //     if (err) {
+                            //         console.log(err)
+                            //     } else {
+                            //         console.log("Successfully renamed the directory.")
+                            //     }
+                            // });
+
                         }
                         else{
                             console.log("Non Veryfied");
                             evt.emit('CertificateSignedResponse', {
-                                type: "Rejected",
-                                type
+                                type: "Rejected"
                             });
                         }
                     });
@@ -299,6 +352,14 @@ function startWebsocket() {
 
             evt.on('CertificateSignedResponse', (data) => {
                 console.log(data);
+            });
+
+            // test
+            evt.on('test', () => {
+                console.log('Restart Client');
+                // ws.close();
+                // startWebsocket();
+                // reconn = setTimeout(startWebsocket, 5000);  
             });
 
         }
