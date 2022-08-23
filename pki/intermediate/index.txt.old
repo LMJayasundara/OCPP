@@ -1,0 +1,4 @@
+V	230823092450Z		1000	unknown	/C=LK/ST=WEST/L=COL/O=VEGA/OU=CG/CN=localhost/emailAddress=server@email.com
+V	320820092454Z		1001	unknown	/C=LK/ST=WEST/L=COL/O=VEGA/OU=CG/CN=client.admin/emailAddress=admin@email.com
+V	320820092504Z		1002	unknown	/C=LK/ST=WEST/L=COL/O=VEGA/OU=CG/CN=localhost/emailAddress=intermediate@email.com
+V	230823092554Z		1003	unknown	/C=LK/ST=WEST/L=COL/O=VEGA/OU=CG/CN=ID001/emailAddress=ID001@email.com
