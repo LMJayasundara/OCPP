@@ -4,7 +4,7 @@
 default_ca = CA_default
 
 [ CA_default ]
-dir               = C:/Users/Lahiru/Desktop/gitdesk/OCPP/pki/intermediate
+dir               = {basedir}
 certs             = $dir/certs
 crl_dir           = $dir/crl
 new_certs_dir     = $dir/newcerts
@@ -13,13 +13,13 @@ serial            = $dir/serial
 RANDFILE          = $dir/private/.rand
 
 # The root key and root certificate.
-private_key       = $dir/private/intermediate.key.pem
-certificate       = $dir/certs/ca-chain.cert.pem
+private_key       = $dir/private/{rootname}.key.pem
+certificate       = $dir/certs/{chainname}.cert.pem
 default_md        = sha256
 
 name_opt          = ca_default
 cert_opt          = ca_default
-default_days      = 365
+default_days      = {days}
 preserve          = no
 policy            = policy_strict
 
@@ -50,19 +50,19 @@ x509_extensions     = v3_ca
 
 name_opt          = ca_default
 cert_opt          = ca_default
-default_days      = 365
+default_days      = {days}
 preserve          = no
 policy            = policy_strict
 prompt            = no
 
 [ req_distinguished_name ]
-countryName                     = LK
-stateOrProvinceName             = WEST
-localityName                    = COL
-0.organizationName              = VEGA
-organizationalUnitName          = CG
-commonName                      = ID001
-emailAddress                    = ID001@email.com
+countryName                     = {country}
+stateOrProvinceName             = {state}
+localityName                    = {locality}
+0.organizationName              = {organization}
+organizationalUnitName          = {unit}
+commonName                      = {commonname}
+emailAddress                    = {commonname}@email.com
 
 [ v3_ca ]
 subjectKeyIdentifier = hash

@@ -4,7 +4,7 @@ const fs = require('fs-extra');
 const path = require('path');
 
 // Define variables
-const username = "ID001";
+const username = "ID002";
 const URL = "wss://localhost:8080/";
 var reconn = null;
 const DB_FILE_PATH = path.join('credential.db');
@@ -64,7 +64,7 @@ var createClient = function(passphrase) {
     var locality = 'COL';
     var organization = 'VEGA';
     var unit = 'CG';
-    var commonname = "ID001_"+Date.now();
+    var commonname = "ID002_"+Date.now();
 
     const pkidir = path.resolve(__dirname + '/pki/').split(path.sep).join("/")+"/";
 
@@ -104,8 +104,8 @@ function startWebsocket() {
         if(hash != false){
             // Define websocket
             var ws = new WebSocket(URL + "" + username, {
-                key: fs.readFileSync(`${__dirname}/ID001/private/client.key.pem`),
-                cert: fs.readFileSync(`${__dirname}/ID001/certs/client.cert.pem`),
+                key: fs.readFileSync(`${__dirname}/ID002/private/client.key.pem`),
+                cert: fs.readFileSync(`${__dirname}/ID002/certs/client.cert.pem`),
 
                 // To enable security option 2, comment out the ca certificate and change the rejectUnauthorized: false
                 ca: [
@@ -265,7 +265,7 @@ function startWebsocket() {
 
                             function fileHandler(){
                                 return new Promise((resolve) => {
-                                    var newdir = "ID001_"+Date.now();
+                                    var newdir = "ID002_"+Date.now();
                                     fs.renameSync(`${__dirname+"\\"+username}`, `${__dirname+"\\"+newdir}`, function(err) {
                                         if (err) {
                                         console.log(err)
@@ -297,7 +297,7 @@ function startWebsocket() {
 
                             asyncFunc();
 
-                            // var newdir = "ID001_"+Date.now();
+                            // var newdir = "ID002_"+Date.now();
                             // fs.renameSync(`${__dirname+"\\"+username}`, `${__dirname+"\\"+newdir}`, function(err) {
                             //     if (err) {
                             //         console.log(err)
@@ -374,7 +374,7 @@ const getDaysRemaining = (validFrom, validTo) => {
 
 function checkCert(){
     return new Promise(function(resolve, reject) {
-        var certificate = fs.readFileSync(`${__dirname}/ID001/certs/client.cert.pem`);
+        var certificate = fs.readFileSync(`${__dirname}/ID002/certs/client.cert.pem`);
 
         validateSSLCert(certificate).then(function(data){
             var validTo = new Date(data.validity.end);
