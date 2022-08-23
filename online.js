@@ -98,7 +98,6 @@ const checkUser = function(hash) {
     return new Promise(function(resolve, reject) {
         fs.readFile(DB_FILE_PATH, 'utf8', function(err, passFile) {
             if (err) {
-                console.log(err);
                 resolve(false);
             } else {
                 const lines = passFile.split('\n');
@@ -117,43 +116,55 @@ const checkUser = function(hash) {
 const onlineAPI = function(app, ws, wss) {
     var events = wsEvents(ws);
 
-    app.post(apipath + '/updatepass/', function(req, res) {
+    app.post(apipath + '/updatepass/', function(req, res, next) {
         console.log("Admin is requesting to update Basic auth password of client " + req.body.username);
         var newhash = crypto.createHash('sha256').update(req.body.username + ':' + req.body.newpasswd).digest('hex');
 
         var hash = crypto.createHash('sha256').update(req.body.username + ':' + req.body.passwd).digest('hex');
+
         checkUser(hash).then(function(ack){
+            console.log("checkUser ack: ",ack);
             if(ack == true){
-                return new Promise(function(resolve, reject) {
-                    wss.clients.forEach(function (client) {
-                        if(client.id == ws.id){
-                            events.emit('SetVariablesRequest', {
-                                component: ws.id,
-                                variable: newhash
-                            });
-                            resolve(true);
-                        }
-                        else{
-                            reject();
-                        }
-                    });
-                }).then(function(){
-                    events.on('SetVariablesResponse', (ack) => {
-                        if(ack.state){
-                            updatepass(req.body.username, req.body.newpasswd).then(function(ack){
+
+                wss.clients.forEach((client) => {
+                    if (client.readyState === ws.OPEN && client.id == ws.id) {
+                        var events_update_pass = wsEvents(client);
+
+                        events_update_pass.emit('SetVariablesRequest', {
+                            component: ws.id,
+                            variable: newhash
+                        });
+
+                        events_update_pass.on('SetVariablesResponse', (ack) => {
+                            console.log("SetVariablesResponse state: ",ack.state );
+                            if(ack.state == 'Accepted'){
+
+                                if(ws.id != null){
+                                    updatepass(ws.id, req.body.newpasswd).then(function(ack){
+                                        console.log("updatepass ack: ",ack);
+                                        if(ack == true){
+                                            res.json({
+                                                success: "true",
+                                                result: req.body.username + " Client update password"
+                                            });
+                                        }
+                                        else{
+                                            res.json({
+                                                success: "fasle",
+                                                result: req.body.username + " Client can not update password"
+                                            });
+                                        }
+                                    });
+                                }
+                            }
+                            else{
                                 res.json({
-                                    success: "true",
-                                    result: req.body.username + " Client update password"
+                                    success: "fasle",
+                                    result: req.body.username + " Client can not update password"
                                 });
-                            }); 
-                        }
-                        else{
-                            res.json({
-                                success: "fasle",
-                                result: req.body.username + " Client can not update password"
-                            });
-                        }
-                    });
+                            }
+                        });
+                    }
                 });
             }
             else{
@@ -163,7 +174,7 @@ const onlineAPI = function(app, ws, wss) {
             }
         });
     });
-
+    
     app.post(apipath + '/updatecertcsms/', function(req, res) {
         console.log("Admin is requesting to update charging station " + req.body.username + " cert by using CSMS");
         // res.json({

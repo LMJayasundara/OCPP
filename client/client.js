@@ -151,7 +151,6 @@ function startWebsocket() {
 
             // Trigger event when server send message
             ws.on('message', function(res) {
-
                 // If msg is in JSON format
                 try {
                     var msg = JSON.parse(res);
@@ -160,7 +159,6 @@ function startWebsocket() {
                 } catch (error) {
                     console.log(res.toString());
                 }
-                
             });
 
             // Error event handler
@@ -171,8 +169,6 @@ function startWebsocket() {
             // Close event handler
             ws.on('close', function(code) {
                 // If cllient in close event reconnect every 5 seconds
-                ws = null;
-                evt = null;
                 reconn = setTimeout(startWebsocket, 5000);
             });
 
@@ -181,10 +177,19 @@ function startWebsocket() {
                 addUser(data.component, data.variable).then(function(ack) {
                     if(ack) {
                         console.log("Password updated");
-                        evt.emit('SetVariablesResponse', {
-                            state: "Accepted"
+                        
+                        return new Promise((resolve) => {
+                            evt.emit('SetVariablesResponse', {
+                                state: "Accepted"
+                            });
+                            resolve();
+                        })
+                        .then(()=>{
+                            setTimeout(() => {
+                                ws.close();
+                                // startWebsocket();
+                            }, 1000);
                         });
-
                     }
                     else {
                         console.log("Password not updated"); 
@@ -193,28 +198,6 @@ function startWebsocket() {
                         });
                     }
                 });
-
-                // async function parallel() {
-                //     await Promise.all([
-                //       (async () => await addUser(data.component, data.variable).then(function(ack){
-                //         if(ack) {
-                //             console.log("Password updated");
-                //             evt.emit('SetVariablesResponse', {
-                //                 state: "Accepted"
-                //             });
-    
-                //         }
-                //         else {
-                //             console.log("Password not updated"); 
-                //             evt.emit('SetVariablesResponse', {
-                //                 state: "Rejected"
-                //             });
-                //         }
-                //       })
-                //       )()
-                //     ]);
-                // }
-                // parallel();
             });
 
             evt.on('TriggerMessageRequest', (data) => {
@@ -355,10 +338,10 @@ function startWebsocket() {
             });
 
             // test
-            evt.on('test', () => {
-                console.log('Restart Client');
+            evt.on('reconnect', (data) => {
+                console.log('reconnect Client: ', data.ID);
                 // ws.close();
-                // startWebsocket();
+                startWebsocket();
                 // reconn = setTimeout(startWebsocket, 5000);  
             });
 
@@ -373,6 +356,7 @@ function startWebsocket() {
 }
 
 const { validateSSLCert } = require('ssl-validator');
+const { resolve } = require('path');
 
 // Return validate days
 const getDaysBetween = (validFrom, validTo) => {

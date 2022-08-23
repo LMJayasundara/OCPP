@@ -139,6 +139,8 @@ const checkCertificateValidity = (daysRemaining, valid) => {
 
         // Add client id to web socket
         ws.id = req.identity;
+        // ws._ws = ws;
+        // ws._wss = wss;
 
         // Get client certificates details
         var cert = req.socket.getPeerCertificate(true);
@@ -164,64 +166,59 @@ const checkCertificateValidity = (daysRemaining, valid) => {
             ocspCache.request(req.id, options, null);
         });
 
-        // online.onlineAPI(app, ws, wss);
-
         // Check status of the certificates
         if(checkCertificateValidity(daysRemaining, valid) == true && !onlineclients.has(req.identity)) { // Check client certificate expired or client already connected
-            ws.on('message', function incoming(message) {
-                online.onlineAPI(app, ws, wss);
+            onlineclients.add(req.identity);
 
-                // Broadcast message to specific connected client
-                wss.clients.forEach(function (client) {
-                    // console.log(ocspCache.cache);
-                    if(client.id == req.identity){
-                        // Check revoke status of the certificates
-                        ocsp.check({cert: rawCert, issuer: rawIssuer}, function(err, res) {
-                            if(err) {
-                                console.log(err.message);
-                                client.send('Failed to obtain OCSP response!');
-                            } else {
-                                console.log(res.type);
-                                var status = res.type;
-                                if(status == 'good'){
-                                    // Add client to the online client list
-                                    onlineclients.add(req.identity);
-                                    // online.onlineAPI(app, ws, wss);
+            // Broadcast message to specific connected client
+            wss.clients.forEach(function (client) {
+                online.onlineAPI(app, client, wss);
+                // console.log(ocspCache.cache);
+                if(client.id == req.identity){
+                    // Check revoke status of the certificates
+                    ocsp.check({cert: rawCert, issuer: rawIssuer}, function(err, res) {
+                        if(err) {
+                            console.log(err.message);
+                            client.send('Failed to obtain OCSP response!');
+                        } else {
+                            // console.log(wss);
+                            console.log(res.type);
+                            var status = res.type;
 
-                                    // // Send and resive data
-                                    // console.log("Connected Charger ID: "  + ws.id);
-                                    // console.log("From client: ", ws.id, ": ", message.toString());
+                            if(status == 'good'){
+
+                                // Add client to the online client list
+                                onlineclients.add(req.identity);
+
+                                console.log("Connected Charger ID: "  + ws.id);
+                                client.send("Connected to the server");
+
+                                // Send and resive data
+                                client.on('message', function incoming(message) {
+                                    console.log("From client: ", ws.id, ": ", message.toString());
                                     // let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
                                     // client.send(traResRow)
-                                    client.send("Connected to the server");
-                                }else{
-                                    client.send('Certificate is revoked!');
-                                }
-                            }                              
-                        });
-                    };
+                                });
 
-                    // // Client disconnected event
-                    // client.on('close', function () {
-                    //     // Client remove from online client set
-                    //     onlineclients.delete(ws.id);
-                    //     console.log('Client disconnected '+ ws.id);
-                    //     console.log(onlineclients);
-                    // });
-                });
-            });
-        
-            // Client disconnected event
-            ws.on('close', function () {
-                // Client remove from online client set
-                onlineclients.delete(ws.id);
-                console.log('Client disconnected '+ ws.id);
-                console.log(onlineclients);
-                restartServer();
+                                // Client disconnected event
+                                client.on('close', function () {
+                                    // Client remove from online client set
+                                    onlineclients.delete(ws.id);
+                                    console.log('Client disconnected '+ ws.id);
+                                    console.log(onlineclients);
+                                    client.close();
+                                    restartServer();
+                                });
+
+                            }else{
+                                client.send('Certificate is revoked!');
+                            }
+                        }                              
+                    });
+                };
             });
         }
         else{
-            online.onlineAPI(app, ws, wss);
             ws.send("Client already connected!")
         }
 
