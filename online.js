@@ -119,16 +119,17 @@ const onlineAPI = function(app, ws, wss) {
     app.post(apipath + '/updatepass/', function(req, res) {
         console.log("Admin is requesting to update Basic auth password of client " + req.body.username);
         var newhash = crypto.createHash('sha256').update(req.body.username + ':' + req.body.newpasswd).digest('hex');
-
         var hash = crypto.createHash('sha256').update(req.body.username + ':' + req.body.passwd).digest('hex');
 
         checkUser(hash).then(function(ack){
             console.log("checkUser ack: ",ack);
             if(ack == true){
-
-                wss.clients.forEach((client) => {
-                    if (client.readyState === ws.OPEN && client.id == req.body.username) {
-                        var events_update_pass = wsEvents(client);
+                return new Promise(async function(resolve, reject) {
+                    const ccc = await Array.from(wss.clients).find(client => (client.readyState === ws.OPEN && client.id == req.body.username));
+                    resolve(ccc)
+                }).then((ccc)=>{
+                    if (ccc.readyState === ws.OPEN && ccc.id == req.body.username) {
+                        var events_update_pass = wsEvents(ccc);
 
                         events_update_pass.emit('SetVariablesRequest', {
                             component: req.body.username,
@@ -162,9 +163,54 @@ const onlineAPI = function(app, ws, wss) {
                                 });
                             }
                         });
-                        throw BreakException;
+                    }
+                    else{
+                        res.json({
+                            success: "fasle",
+                            result: req.body.username + " Client can not update password"
+                        });
                     }
                 });
+                
+                // wss.clients.forEach((client) => {
+                //     if (client.readyState === ws.OPEN && client.id == req.body.username) {
+                //         var events_update_pass = wsEvents(client);
+
+                //         events_update_pass.emit('SetVariablesRequest', {
+                //             component: req.body.username,
+                //             variable: newhash
+                //         });
+
+                //         events_update_pass.on('SetVariablesResponse', (ack) => {
+                //             console.log("SetVariablesResponse state: ",ack.state );
+                //             if(ack.state == 'Accepted'){
+
+                //                 updatepass(req.body.username, req.body.newpasswd).then(function(ack){
+                //                     console.log("updatepass ack: ",ack);
+                //                     if(ack == true){
+                //                         res.json({
+                //                             success: "true",
+                //                             result: req.body.username + " Client update password"
+                //                         });
+                //                     }
+                //                     else{
+                //                         res.json({
+                //                             success: "fasle",
+                //                             result: req.body.username + " Client can not update password"
+                //                         });
+                //                     }
+                //                 });
+                //             }
+                //             else{
+                //                 res.json({
+                //                     success: "fasle",
+                //                     result: req.body.username + " Client can not update password"
+                //                 });
+                //             }
+                //         });
+                //         // throw BreakException;
+                //     }
+                // });
             }
             else{
                 res.json({
