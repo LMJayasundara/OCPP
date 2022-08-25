@@ -1,4 +1,3 @@
-// Import libs
 const WebSocketServer = require('ws').Server;
 const fs = require('fs');
 const https = require('https');
@@ -134,7 +133,7 @@ const checkCertificateValidity = (daysRemaining, valid) => {
 // wss = initWebSocket();
 
 // When client connect
-// (async function () {
+(async function () {
     wss.on('connection', function (ws, req) {
 
         // Add client id to web socket
@@ -180,6 +179,7 @@ const checkCertificateValidity = (daysRemaining, valid) => {
                         if(err) {
                             console.log(err.message);
                             client.send('Failed to obtain OCSP response!');
+                            client.close();
                         } else {
                             // console.log(wss);
                             console.log(res.type);
@@ -223,7 +223,7 @@ const checkCertificateValidity = (daysRemaining, valid) => {
         }
 
     });
-// })();
+})();
 
 // Start the server
 server.listen(PORT, ()=>{
@@ -251,7 +251,7 @@ var stopServer = function() {
 var restartServer = function() {
     // Start the OCSP server
     ocsp_server.startServer().then(function (cbocsp) {
-        var ocsprenewint = 1000 * 60; // 1min
+        var ocsprenewint = 3000; // 3 second
         reocsp = cbocsp;
         // Restart the OCSP server every 1 min
         setInterval(() => {
@@ -262,7 +262,7 @@ var restartServer = function() {
                     //     // process.exit();
                     // }
                     // else{
-                    console.log("Restart the ocsp server..");
+                    // console.log("Restart the ocsp server..");
                     cbocsp = spawn('openssl', [
                         'ocsp',
                         '-port', global.config.ca.ocsp.port,

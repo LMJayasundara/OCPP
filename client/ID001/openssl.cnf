@@ -4,7 +4,7 @@
 default_ca = CA_default
 
 [ CA_default ]
-dir               = C:/Users/Lahiru/Desktop/gitdesk/OCPP/pki/intermediate
+dir               = C:/Users/Lahiru/Desktop/gitdesk/OCPP/client/pki/intermediate
 certs             = $dir/certs
 crl_dir           = $dir/crl
 new_certs_dir     = $dir/newcerts
@@ -61,8 +61,8 @@ stateOrProvinceName             = WEST
 localityName                    = COL
 0.organizationName              = VEGA
 organizationalUnitName          = CG
-commonName                      = ID001
-emailAddress                    = ID001@email.com
+commonName                      = ID001_1661405820428
+emailAddress                    = ID001_1661405820428@email.com
 
 [ v3_ca ]
 subjectKeyIdentifier = hash
