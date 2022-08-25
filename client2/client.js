@@ -11,7 +11,7 @@ const DB_FILE_PATH = path.join('credential.db');
 
 const wsEvents = require('ws-events');
 var exec = require('child_process').exec;
-const crypto = require('crypto');
+const { validateSSLCert } = require('ssl-validator');
 
 // Check password and by username
 const gethash = function(id) {
@@ -48,7 +48,7 @@ const addUser = function(username, passhash) {
     });
 };
 
-var createClient = function(passphrase) {
+var createClient = function(commonname) {
     // Prepare client dir
     fs.ensureDirSync('new');
     fs.ensureDirSync('new/certs');
@@ -57,14 +57,12 @@ var createClient = function(passphrase) {
 
     var rootname = 'intermediate';
     var chainname = 'ca-chain';
-    var passphrase = 'adminpass';
     var days = 365;
     var country = 'LK';
     var state = 'WEST';
     var locality = 'COL';
     var organization = 'VEGA';
     var unit = 'CG';
-    var commonname = "ID002_"+Date.now();
 
     const pkidir = path.resolve(__dirname + '/pki/').split(path.sep).join("/")+"/";
 
@@ -104,8 +102,8 @@ function startWebsocket() {
         if(hash != false){
             // Define websocket
             var ws = new WebSocket(URL + "" + username, {
-                key: fs.readFileSync(`${__dirname}/ID002/private/client.key.pem`),
-                cert: fs.readFileSync(`${__dirname}/ID002/certs/client.cert.pem`),
+                key: fs.readFileSync(`${__dirname+"\\"+username}/private/client.key.pem`),
+                cert: fs.readFileSync(`${__dirname+"\\"+username}/certs/client.cert.pem`),
 
                 // To enable security option 2, comment out the ca certificate and change the rejectUnauthorized: false
                 ca: [
@@ -128,8 +126,8 @@ function startWebsocket() {
                 checkCert().then(function(daysRemaining){
                     // console.log(daysRemaining);
                     if(daysRemaining <= 30){
-                        passphrase = "adminpass";
-                        createClient(passphrase).then(function(){
+                        var commonname = username+"_"+Date.now();
+                        createClient(commonname).then(function(){
                             evt.emit('SignCertificateRequest', {
                                 csr: fs.readFileSync(path.join('new/csr/client.csr.pem'), 'utf8'),
                                 typeOfCertificate: "ChargingStationCertificate"
@@ -145,7 +143,6 @@ function startWebsocket() {
                 // let sTrans = JSON.parse(rawdata);
                 // sTrans.eventType = "Started";
                 // sTrans.timestamp = Date.now();
-
                 // ws.send(JSON.stringify(sTrans));
             });
 
@@ -187,7 +184,6 @@ function startWebsocket() {
                         .then(()=>{
                             setTimeout(() => {
                                 ws.close();
-                                // startWebsocket();
                             }, 1000);
                         });
                     }
@@ -202,12 +198,12 @@ function startWebsocket() {
 
             evt.on('TriggerMessageRequest', (data) => {
                 if(data.requestedMessage == "SignChargingStationCertificate"){
+                    var commonname = username+"_"+Date.now();
                     evt.emit('TriggerMessageResponse', {
                         state: "Accepted"
                     });
 
-                    passphrase = "adminpass";
-                    createClient(passphrase).then(function(){
+                    createClient(commonname).then(function(){
                         evt.emit('SignCertificateRequest', {
                             csr: fs.readFileSync(path.join('new/csr/client.csr.pem'), 'utf8'),
                             typeOfCertificate: "ChargingStationCertificate"
@@ -227,28 +223,36 @@ function startWebsocket() {
 
                 var veryfycert = function() {
                     return new Promise(function(resolve, reject) {
-                        // Create key
                         exec('openssl x509 -noout -modulus -in certs/client.cert.pem', {
                             cwd: `${__dirname}/new/`
                         }, function(err, stdout, stderr) {
                             // console.log("err: ", err);
                             // console.log("stdout: ", stdout);
                             // console.log("stderr: ", stderr);
-                            resolve(stdout);
+                            if(err == null){
+                                resolve(stdout);
+                            }
+                            else{
+                                reject();
+                            }
                         });
                     });
                 };
 
                 var veryfykey = function() {
                     return new Promise(function(resolve, reject) {
-                        // Create key
                         exec('openssl rsa -noout -modulus -in private/client.key.pem -passin pass:adminpass', {
                             cwd: `${__dirname}/new/`
                         }, function(err, stdout, stderr) {
                             // console.log("err: ", err);
                             // console.log("stdout: ", stdout);
                             // console.log("stderr: ", stderr);
-                            resolve(stdout);
+                            if(err == null){
+                                resolve(stdout);
+                            }
+                            else{
+                                reject();
+                            }
                         });
                     });
                 };
@@ -263,58 +267,26 @@ function startWebsocket() {
                                 status: "Accepted"
                             });
 
-                            function fileHandler(){
-                                return new Promise((resolve) => {
-                                    var newdir = "ID002_"+Date.now();
-                                    fs.renameSync(`${__dirname+"\\"+username}`, `${__dirname+"\\"+newdir}`, function(err) {
-                                        if (err) {
-                                        console.log(err)
-                                        } else {
-                                        console.log("Successfully renamed the directory.")
-                                        }
-                                    });
-        
-                                    const currPath = `${__dirname+"\\new"}`;
-                                    const newPath = `${__dirname+"\\"+username}`;
-                                    fs.renameSync(currPath, newPath, function(err) {
-                                        if (err) {
-                                        console.log(err)
-                                        } else {
-                                        console.log("Successfully renamed the directory.")
-                                        }
-                                    });
+                            var newdir = username+"_"+Date.now();
+                            fs.renameSync(`${__dirname+"\\"+username}`, `${__dirname+"\\"+newdir}`, function(err) {
+                                if (err) {
+                                    console.log(err);
+                                } else {
+                                    console.log("Successfully renamed the directory.")
+                                }
+                            });
 
-                                    resolve("fileHandler")
-                                });
-                            };
-                            
-                            async function asyncFunc() {
-                                console.log("async function");
-                                await Promise.all([
-                                  (async () => console.log(await fileHandler()))()
-                                ]);
-                            };
+                            var currPath = `${__dirname+"\\new"}`;
+                            var newPath = `${__dirname+"\\"+username}`;
+                            fs.renameSync(currPath, newPath, function(err) {
+                                if (err) {
+                                    console.log(err);
+                                } else {
+                                    console.log("Successfully renamed the directory.")
+                                }
+                            });
 
-                            asyncFunc();
-
-                            // var newdir = "ID002_"+Date.now();
-                            // fs.renameSync(`${__dirname+"\\"+username}`, `${__dirname+"\\"+newdir}`, function(err) {
-                            //     if (err) {
-                            //         console.log(err)
-                            //     } else {
-                            //         console.log("Successfully renamed the directory.")
-                            //     }
-                            // });
-
-                            // const currPath = `${__dirname+"\\new"}`;
-                            // const newPath = `${__dirname+"\\"+username}`;
-                            // fs.renameSync(currPath, newPath, function(err) {
-                            //     if (err) {
-                            //         console.log(err)
-                            //     } else {
-                            //         console.log("Successfully renamed the directory.")
-                            //     }
-                            // });
+                            ws.close();
 
                         }
                         else{
@@ -333,18 +305,6 @@ function startWebsocket() {
                 timestamp: new Date()
             });
 
-            evt.on('CertificateSignedResponse', (data) => {
-                console.log(data);
-            });
-
-            // test
-            evt.on('reconnect', (data) => {
-                console.log('reconnect Client: ', data.ID);
-                // ws.close();
-                startWebsocket();
-                // reconn = setTimeout(startWebsocket, 5000);  
-            });
-
         }
         else{
             console.log("Id not include in data base");
@@ -354,9 +314,6 @@ function startWebsocket() {
         }
     });
 }
-
-const { validateSSLCert } = require('ssl-validator');
-const { resolve } = require('path');
 
 // Return validate days
 const getDaysBetween = (validFrom, validTo) => {
@@ -374,7 +331,7 @@ const getDaysRemaining = (validFrom, validTo) => {
 
 function checkCert(){
     return new Promise(function(resolve, reject) {
-        var certificate = fs.readFileSync(`${__dirname}/ID002/certs/client.cert.pem`);
+        var certificate = fs.readFileSync(`${__dirname+"\\"+username}/certs/client.cert.pem`);
 
         validateSSLCert(certificate).then(function(data){
             var validTo = new Date(data.validity.end);
