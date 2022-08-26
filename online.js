@@ -113,8 +113,8 @@ const checkUser = function(hash) {
     });
 };
 
-const onlineAPI = function(app, ws, wss) {
-    var events = wsEvents(ws);
+const onlineAPI = function(app, wss, client) {
+    // var events = wsEvents(ws);
 
     app.post(apipath + '/updatepass/', function(req, res) {
         console.log("Admin is requesting to update Basic auth password of client " + req.body.username);
@@ -126,11 +126,11 @@ const onlineAPI = function(app, ws, wss) {
             console.log("checkUser ack: ",ack);
             if(ack == true){
                 return new Promise(async function(resolve, reject) {
-                    const ccc = await Array.from(wss.clients).find(client => (client.readyState === ws.OPEN && client.id == req.body.username));
+                    const ccc = await Array.from(wss.clients).find(client => (client.readyState === client.OPEN && client.id == req.body.username));
                     resolve(ccc)
-                }).then((ccc)=>{
-                    if (ccc.readyState === ws.OPEN && ccc.id == req.body.username) {
-                        var events_update_pass = wsEvents(ccc);
+                }).then((client)=>{
+                    if (client != undefined) {
+                        var events_update_pass = wsEvents(client);
 
                         events_update_pass.emit('SetVariablesRequest', {
                             component: req.body.username,
@@ -146,13 +146,13 @@ const onlineAPI = function(app, ws, wss) {
                                     if(ack == true){
                                         res.json({
                                             success: "true",
-                                            result: req.body.username + " Client update password"
+                                            result: req.body.username + " Client update the password"
                                         });
                                     }
                                     else{
                                         res.json({
                                             success: "fasle",
-                                            result: req.body.username + " Client can not update password"
+                                            result: req.body.username + " Client can not update the password"
                                         });
                                     }
                                 });
@@ -160,7 +160,7 @@ const onlineAPI = function(app, ws, wss) {
                             else{
                                 res.json({
                                     success: "fasle",
-                                    result: req.body.username + " Client can not update password"
+                                    result: "SetVariables Response: Rejected"
                                 });
                             }
                         });
@@ -168,7 +168,7 @@ const onlineAPI = function(app, ws, wss) {
                     else{
                         res.json({
                             success: "fasle",
-                            result: req.body.username + " Client can not update password"
+                            result: "Can not find client " + req.body.username
                         });
                     }
                 });
@@ -185,10 +185,10 @@ const onlineAPI = function(app, ws, wss) {
         console.log("Admin is requesting to update charging station " + req.body.username + " cert by using CSMS");
 
         return new Promise(async function(resolve, reject) {
-            const ccc = await Array.from(wss.clients).find(client => (client.readyState === ws.OPEN && client.id == req.body.username));
+            const ccc = await Array.from(wss.clients).find(client => (client.readyState === client.OPEN && client.id == req.body.username));
             resolve(ccc)
         }).then((client)=>{
-            if(client.readyState === ws.OPEN && client.id == req.body.username){
+            if(client != undefined){
                 var events_update_cert_csms = wsEvents(client);
 
                 events_update_cert_csms.emit('TriggerMessageRequest', {
@@ -231,8 +231,8 @@ const onlineAPI = function(app, ws, wss) {
                                     state: "Rejected"
                                 });
                                 res.json({
-                                    success: "fasle1",
-                                    result: req.body.username + " Client can not update certs"
+                                    success: "fasle",
+                                    result: "CSR file error!"
                                 });
                             }
 
@@ -246,8 +246,8 @@ const onlineAPI = function(app, ws, wss) {
                                 }
                                 else{
                                     res.json({
-                                        success: "fasle2",
-                                        result: req.body.username + " Client can not update certs"
+                                        success: "fasle",
+                                        result: req.body.username + " Client doesn't update certs"
                                     });
                                 }
                             });
@@ -256,55 +256,64 @@ const onlineAPI = function(app, ws, wss) {
                     }
                     else{
                         res.json({
-                            success: "fasle3",
-                            result: req.body.username + " Client can not update certs"
+                            success: "fasle",
+                            result: "Trigger Message Response: Rejected"
                         });
                     }
                 });
             }
             else{
                 res.json({
-                    success: "fasle4",
-                    result: req.body.username + " Client can not update certs"
+                    success: "fasle",
+                    result: "Can not find client " + req.body.username
                 });
             };
         });
     });
 
-    // events.on('SignCertificateRequest', (ack) => {
-    //     if(ack.csr != null){
-    //         events.emit('SignCertificateResponse', {
-    //             state: "Accepted"
-    //         });
 
-    //         console.log(ack.csr);
-    //         fs.writeFile(pkidir + ws.id + '/csr/new.csr.pem', ack.csr).then(function(){
-    //             return new Promise(function(resolve, reject) {
-    //                 // Create certificate
-    //                 exec('openssl ca -config openssl.cnf -extensions usr_cert -days 365 -notext -md sha256 -in csr/new.csr.pem -out certs/new.cert.pem -passin pass:intermediatecapass -batch', {
-    //                     cwd: pkidir + ws.id
-    //                 }, function(err) {
-    //                     console.log("Create Admin Keys Err: ", err);
-    //                     resolve();
-    //                 });
-    //             }).then(function(){
-    //                 events.emit('CertificateSignedRequest', {
-    //                     cert: fs.readFileSync(path.join(pkidir + ws.id +'/certs/new.cert.pem'), 'utf8'),
-    //                     typeOfCertificate: "ChargingStationCertificate"
-    //                 });
-    //             });
-    //         });
+    var events = wsEvents(client);
+    events.on('SignCertificateRequest', (ack) => {
+        if(ack.csr != null){
+            events.emit('SignCertificateResponse', {
+                state: "Accepted"
+            });
 
-    //         events.on('CertificateSignedResponse', (ack) => {
-    //             console.log(ack.status);
-    //         });
-    //     }
-    //     else{
-    //         events.emit('SignCertificateResponse', {
-    //             state: "Rejected"
-    //         });
-    //     } 
-    // });
+            console.log(ack.csr);
+            fs.writeFile(pkidir + client.id + '/csr/new.csr.pem', ack.csr).then(async function(){
+                return new Promise(function(resolve, reject) {
+                    // Create certificate
+                    exec('openssl ca -config openssl.cnf -extensions usr_cert -days 365 -notext -md sha256 -in csr/new.csr.pem -out certs/new.cert.pem -passin pass:intermediatecapass -batch', {
+                        cwd: pkidir + client.id
+                    }, function(err) {
+                        console.log("Create Admin Keys Err: ", err);
+                        resolve();
+                    });
+                }).then(function(){
+                    events.emit('CertificateSignedRequest', {
+                        cert: fs.readFileSync(path.join(pkidir + client.id +'/certs/new.cert.pem'), 'utf8'),
+                        typeOfCertificate: "ChargingStationCertificate"
+                    });
+                });
+            });
+
+            events.on('CertificateSignedResponse', (ack) => {
+                client.close();
+                if(ack.status == "Accepted"){
+                    console.log(client.id + " Client update certs");
+                }
+                else{
+                    console.log(client.id + " Client doesn't update certs");
+                }
+            });
+        }
+        else{
+            events.emit('SignCertificateResponse', {
+                state: "Rejected"
+            });
+            console.log("CSR file error!");
+        }
+    });
 
     // A04 - Security Event Notification
     events.on('SecurityEventNotificationRequest', (ack) => {

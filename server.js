@@ -127,7 +127,7 @@ const checkCertificateValidity = (daysRemaining, valid) => {
 
 // When client connect
 (async function () {
-    wss.on('connection', function (ws, req) {
+    wss.on('connection', async function (ws, req) {
 
         // Add client id to web socket
         ws.id = req.identity;
@@ -157,58 +157,68 @@ const checkCertificateValidity = (daysRemaining, valid) => {
         });
 
         // Broadcast message to specific connected client
-        wss.clients.forEach(function (client) {
-            
-            // console.log(ocspCache.cache);
-            // Check status of the certificates
-            if(client.id == req.identity && checkCertificateValidity(daysRemaining, valid) == true && !onlineclients.has(req.identity)){
-                online.onlineAPI(app, client, wss);
-                // Check revoke status of the certificates
-                ocsp.check({cert: rawCert, issuer: rawIssuer}, function(err, res) {
-                    if(err) {
-                        console.log(err.message);
-                        client.send('Failed to obtain OCSP response!');
-                        client.close();
-                    } else {
-                        console.log(res.type);
-                        var status = res.type;
+        return new Promise(async function(resolve, reject) {
+            const ccc = await Array.from(wss.clients).find(client => client.id == req.identity);
+            resolve(ccc)
+        }).then((client)=>{
 
-                        if(status == 'good'){
-
-                            // Add client to the online client list
-                            onlineclients.add(req.identity);
-
-                            console.log("Connected Charger ID: "  + client.id);
-                            client.send("Connected to the server");
-
-                            // Send and resive data
-                            client.on('message', function incoming(message) {
-                                // console.log("From client: ", client.id, ": ", message.toString());
-                                // let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
-                                // client.send(traResRow)
-                            });
-
-                            // Client disconnected event
-                            client.on('close', function () {
-                                // Client remove from online client set
-                                onlineclients.delete(client.id);
-                                console.log('Client disconnected '+ client.id);
-                                console.log(onlineclients);
+            if(client != undefined){
+                if(checkCertificateValidity(daysRemaining, valid) == true){
+                    // console.log(ocspCache.cache);
+                    // Check status of the certificates
+                    if(!onlineclients.has(req.identity)){
+                        online.onlineAPI(app, wss, client);
+                        // Check revoke status of the certificates
+                        ocsp.check({cert: rawCert, issuer: rawIssuer}, function(err, res) {
+                            if(err) {
+                                console.log(err.message);
+                                client.send('Failed to obtain OCSP response!');
                                 client.close();
-                                restartServer();
-                            });
+                            } else {
+                                console.log(res.type);
+                                var status = res.type;
 
-                        }else{
-                            client.send('Certificate is revoked!');
-                        }
-                    }                              
-                });
+                                if(status == 'good'){
+                                    // Add client to the online client list
+                                    onlineclients.add(req.identity);
+
+                                    console.log("Connected Charger ID: "  + client.id);
+                                    client.send("Connected to the server");
+
+                                    // Send and resive data
+                                    client.on('message', function incoming(message) {
+                                        // console.log("From client: ", client.id, ": ", message.toString());
+                                        // let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
+                                        // client.send(traResRow)
+                                    });
+
+                                    // Client disconnected event
+                                    client.on('close', function () {
+                                        // Client remove from online client set
+                                        onlineclients.delete(client.id);
+                                        console.log('Client disconnected '+ client.id);
+                                        console.log(onlineclients);
+                                        client.close();
+                                        restartServer();
+                                    });
+
+                                }else{
+                                    client.send('Certificate is revoked!');
+                                }
+                            }                              
+                        });
+                    }
+                    else{
+                        // online.onlineAPI(app, wss);
+                        client.send("Client already connected!");
+                    }
+                }
+                else{
+                    client.send("Client certificate expired!");
+                }
             }
             else{
-                if(client.id == req.identity){
-                    // online.onlineAPI(app, client, wss);
-                    client.send("Client already connected!")
-                }
+                console.log("Client Undefined!");
             }
         });
     });
