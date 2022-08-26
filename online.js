@@ -172,47 +172,6 @@ const onlineAPI = function(app, ws, wss) {
                         });
                     }
                 });
-
-                ////////////////////////////////////////////////////////////////////////////////
-                
-                // wss.clients.forEach((client) => {
-                //     if (client.readyState === ws.OPEN && client.id == req.body.username) {
-                //         var events_update_pass = wsEvents(client);
-
-                //         events_update_pass.emit('SetVariablesRequest', {
-                //             component: req.body.username,
-                //             variable: newhash
-                //         });
-
-                //         events_update_pass.on('SetVariablesResponse', (ack) => {
-                //             console.log("SetVariablesResponse state: ",ack.state );
-                //             if(ack.state == 'Accepted'){
-
-                //                 updatepass(req.body.username, req.body.newpasswd).then(function(ack){
-                //                     console.log("updatepass ack: ",ack);
-                //                     if(ack == true){
-                //                         res.json({
-                //                             success: "true",
-                //                             result: req.body.username + " Client update password"
-                //                         });
-                //                     }
-                //                     else{
-                //                         res.json({
-                //                             success: "fasle",
-                //                             result: req.body.username + " Client can not update password"
-                //                         });
-                //                     }
-                //                 });
-                //             }
-                //             else{
-                //                 res.json({
-                //                     success: "fasle",
-                //                     result: req.body.username + " Client can not update password"
-                //                 });
-                //             }
-                //         });
-                //     }
-                // });
             }
             else{
                 res.json({
@@ -220,15 +179,15 @@ const onlineAPI = function(app, ws, wss) {
                 });
             }
         });
-
-        // var end = new Date().getTime();
-        // console.log(`Call to doSomething took ${end - start} milliseconds`);
     });
     
     app.post(apipath + '/updatecertcsms/', function(req, res) {
         console.log("Admin is requesting to update charging station " + req.body.username + " cert by using CSMS");
 
-        wss.clients.forEach(function (client) {
+        return new Promise(async function(resolve, reject) {
+            const ccc = await Array.from(wss.clients).find(client => (client.readyState === ws.OPEN && client.id == req.body.username));
+            resolve(ccc)
+        }).then((client)=>{
             if(client.readyState === ws.OPEN && client.id == req.body.username){
                 var events_update_cert_csms = wsEvents(client);
 
@@ -244,7 +203,6 @@ const onlineAPI = function(app, ws, wss) {
                                     state: "Accepted"
                                 });
 
-                                console.log(ack.csr);
                                 fs.writeFile(pkidir + req.body.username + '/csr/new.csr.pem', ack.csr).then(async function(){
                                     return new Promise(function(resolve, reject) {
                                         // Create certificate
@@ -264,7 +222,6 @@ const onlineAPI = function(app, ws, wss) {
                                             cert: fs.readFileSync(path.join(pkidir + req.body.username +'/certs/new.cert.pem'), 'utf8'),
                                             typeOfCertificate: "ChargingStationCertificate"
                                         });
-                                        // client.close();
                                     });
                                 });
 
@@ -274,33 +231,32 @@ const onlineAPI = function(app, ws, wss) {
                                     state: "Rejected"
                                 });
                                 res.json({
-                                    success: "fasle",
+                                    success: "fasle1",
                                     result: req.body.username + " Client can not update certs"
                                 });
                             }
-                        });
 
-                        events_update_cert_csms.on('CertificateSignedResponse', (ack) => {
-                            console.log("xxxxxxxxxxx", ack.status);
-                            if(ack.status == "Accepted"){
-                                // client.close();
-                                res.json({
-                                    success: "true",
-                                    result: req.body.username + " Client update certs"
-                                });
-                            }
-                            else{
-                                res.json({
-                                    success: "fasle",
-                                    result: req.body.username + " Client can not update certs"
-                                });
-                            }
-                        });
+                            events_update_cert_csms.on('CertificateSignedResponse', (ack) => {
+                                client.close();
+                                if(ack.status == "Accepted"){
+                                    res.json({
+                                        success: "true",
+                                        result: req.body.username + " Client update certs"
+                                    });
+                                }
+                                else{
+                                    res.json({
+                                        success: "fasle2",
+                                        result: req.body.username + " Client can not update certs"
+                                    });
+                                }
+                            });
 
+                        });
                     }
                     else{
                         res.json({
-                            success: "fasle",
+                            success: "fasle3",
                             result: req.body.username + " Client can not update certs"
                         });
                     }
@@ -308,14 +264,12 @@ const onlineAPI = function(app, ws, wss) {
             }
             else{
                 res.json({
-                    success: "fasle",
+                    success: "fasle4",
                     result: req.body.username + " Client can not update certs"
                 });
             };
-
         });
     });
-
 
     // events.on('SignCertificateRequest', (ack) => {
     //     if(ack.csr != null){

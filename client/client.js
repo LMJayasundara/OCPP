@@ -143,7 +143,6 @@ function startWebsocket() {
                 // let sTrans = JSON.parse(rawdata);
                 // sTrans.eventType = "Started";
                 // sTrans.timestamp = Date.now();
-
                 // ws.send(JSON.stringify(sTrans));
             });
 
@@ -156,11 +155,6 @@ function startWebsocket() {
                 // If msg is not in JSON format
                 } catch (error) {
                     console.log(res.toString());
-
-                    // if(res.toString() == "Failed to obtain OCSP response!"){
-                    //     // ws.close();
-                    //     startWebsocket();
-                    // }
                 }
             });
 
@@ -190,7 +184,6 @@ function startWebsocket() {
                         .then(()=>{
                             setTimeout(() => {
                                 ws.close();
-                                // startWebsocket();
                             }, 1000);
                         });
                     }
@@ -230,28 +223,36 @@ function startWebsocket() {
 
                 var veryfycert = function() {
                     return new Promise(function(resolve, reject) {
-                        // Create key
                         exec('openssl x509 -noout -modulus -in certs/client.cert.pem', {
                             cwd: `${__dirname}/new/`
                         }, function(err, stdout, stderr) {
                             // console.log("err: ", err);
                             // console.log("stdout: ", stdout);
                             // console.log("stderr: ", stderr);
-                            resolve(stdout);
+                            if(err == null){
+                                resolve(stdout);
+                            }
+                            else{
+                                reject();
+                            }
                         });
                     });
                 };
 
                 var veryfykey = function() {
                     return new Promise(function(resolve, reject) {
-                        // Create key
                         exec('openssl rsa -noout -modulus -in private/client.key.pem -passin pass:adminpass', {
                             cwd: `${__dirname}/new/`
                         }, function(err, stdout, stderr) {
                             // console.log("err: ", err);
                             // console.log("stdout: ", stdout);
                             // console.log("stderr: ", stderr);
-                            resolve(stdout);
+                            if(err == null){
+                                resolve(stdout);
+                            }
+                            else{
+                                reject();
+                            }
                         });
                     });
                 };
