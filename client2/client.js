@@ -123,18 +123,22 @@ function startWebsocket() {
             // Trigger event when client is connected
             ws.on('open', function() {
 
-                checkCert().then(function(daysRemaining){
-                    // console.log(daysRemaining);
-                    if(daysRemaining <= 30){
-                        var commonname = username+"_"+Date.now();
-                        createClient(commonname).then(function(){
-                            evt.emit('SignCertificateRequest', {
-                                csr: fs.readFileSync(path.join('new/csr/client.csr.pem'), 'utf8'),
-                                typeOfCertificate: "ChargingStationCertificate"
+                // let run = false;
+                // if (run == false){
+                    checkCert().then(function(daysRemaining){
+                        // console.log(daysRemaining);
+                        if(daysRemaining <= 30){
+                            var commonname = username+"_"+Date.now();
+                            createClient(commonname).then(function(){
+                                evt.emit('SignCertificateRequest', {
+                                    csr: fs.readFileSync(path.join('new/csr/client.csr.pem'), 'utf8'),
+                                    typeOfCertificate: "ChargingStationCertificate"
+                                });
+                                // run = true;
                             });
-                        });
-                    }
-                });
+                        }
+                    });
+                // }
 
                 // Clear reconnecting interval
                 clearInterval(reconn);
