@@ -114,7 +114,8 @@ const checkUser = function(hash) {
 };
 
 const onlineAPI = function(app, wss, client) {
-    // var events = wsEvents(ws);
+    var events = wsEvents(client);
+
 
     app.post(apipath + '/updatepass/', function(req, res) {
         console.log("Admin is requesting to update Basic auth password of client " + req.body.username);
@@ -125,19 +126,19 @@ const onlineAPI = function(app, wss, client) {
         checkUser(hash).then(function(ack){
             console.log("checkUser ack: ",ack);
             if(ack == true){
-                return new Promise(async function(resolve, reject) {
-                    const ccc = await Array.from(wss.clients).find(client => (client.readyState === client.OPEN && client.id == req.body.username));
-                    resolve(ccc)
-                }).then((client)=>{
+                // return new Promise(async function(resolve, reject) {
+                //     const ccc = await Array.from(wss.clients).find(client => (client.readyState === client.OPEN && client.id == req.body.username));
+                //     resolve(ccc)
+                // }).then((client)=>{
                     if (client != undefined) {
-                        var events_update_pass = wsEvents(client);
+                        // var events_update_pass = wsEvents(client);
 
-                        events_update_pass.emit('SetVariablesRequest', {
+                        events.emit('SetVariablesRequest', {
                             component: req.body.username,
                             variable: newhash
                         });
 
-                        events_update_pass.on('SetVariablesResponse', (ack) => {
+                        events.on('SetVariablesResponse', (ack) => {
                             console.log("SetVariablesResponse state: ",ack.state );
                             if(ack.state == 'Accepted'){
 
@@ -171,7 +172,7 @@ const onlineAPI = function(app, wss, client) {
                             result: "Can not find client " + req.body.username
                         });
                     }
-                });
+                // });
             }
             else{
                 res.json({
@@ -271,8 +272,6 @@ const onlineAPI = function(app, wss, client) {
         });
     });
 
-
-    var events = wsEvents(client);
     events.on('SignCertificateRequest', (ack) => {
         if(ack.csr != null){
             events.emit('SignCertificateResponse', {
