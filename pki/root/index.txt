@@ -1,1 +1,0 @@
-V	230823092446Z		1000	unknown	/C=LK/ST=WEST/L=COL/O=VEGA/OU=CG/CN=INTERMEDIATE_CA/emailAddress=intermediate@email.com

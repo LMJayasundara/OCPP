@@ -114,7 +114,8 @@ const checkUser = function(hash) {
 };
 
 const onlineAPI = function(app, wss, client) {
-    // var events = wsEvents(ws);
+    var events = wsEvents(client);
+
 
     app.post(apipath + '/updatepass/', function(req, res) {
         console.log("Admin is requesting to update Basic auth password of client " + req.body.username);
@@ -271,8 +272,6 @@ const onlineAPI = function(app, wss, client) {
         });
     });
 
-
-    var events = wsEvents(client);
     events.on('SignCertificateRequest', (ack) => {
         if(ack.csr != null){
             events.emit('SignCertificateResponse', {
