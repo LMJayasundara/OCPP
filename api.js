@@ -160,32 +160,45 @@ const getPair = function(username) {
     });
 };
 
-// Delete user data form the user.db file
-const deluserdb = function(username){
+certificates = new Array();
+
+// Sample: V	270129084423Z	270129084423Z	100E	unknown	/C=DE/ST=Germany/O=ADITO Software GmbH/OU=IT/CN=ADITO General Intermediate CA/emailAddress=it@adito.de
+var regex = /([R,E,V])(\t)(.*)(\t)(.*)(\t)([\dA-F]*)(\t)(unknown)(\t)(.*)/;
+
+// Re-indexes OpenSSL index.txt file and stores datasets in array 'certificates'
+var reindex = function() {
     return new Promise(function(resolve, reject) {
-        fs.readFile(DB_FILE_PATH, {encoding: 'utf-8'}, function(err, data) {
-            if (err) resolve(false);
-        
-            let dataArray = data.split('\n');
-            const searchKeyword = username;
-            let lastIndex = -1;
-        
-            for (let index=0; index<dataArray.length; index++) {
-                if (dataArray[index].includes(searchKeyword)) {
-                    lastIndex = index;
-                    break; 
-                }
-            };
-        
-            dataArray.splice(lastIndex, 1);
-            const updatedData = dataArray.join('\n');
-            fs.writeFile(DB_FILE_PATH, updatedData, (err) => {
-                if (err) resolve(false);
-                resolve(true);
-            });
+
+        var lineReader = require('readline').createInterface({
+            input: require('fs').createReadStream(pkidir + 'intermediate/index.txt')
+        });
+
+        certificates = [];
+
+        lineReader.on('line', function (line) {
+            var columns = regex.exec(line);
+
+            if(columns !== null){
+                var certificate = {
+                    state:   columns[1],
+                    expirationtime:    columns[3],
+                    revocationtime:     columns[5],
+                    serial:     columns[7],
+                    subject:    columns[11]
+                };
+
+                certificates.push(certificate);
+            } else {
+                log.error("Error while parsing index.txt line :(");
+            }
+        });
+
+        lineReader.on('close', function() {
+            console.log("Reindexing finished");
+            resolve(certificates);
         });
     });
-};
+}
 
 /////////////////////////////////////////////////////// Init APIs ///////////////////////////////////////////////////////
 
@@ -237,8 +250,19 @@ const initAPI = function(app) {
         var hash = crypto.createHash('sha256').update(req.body.username + ':' + req.body.passwd).digest('hex');
         checkUser(hash).then(function(ack){
             if(ack == true){
-                res.json({
-                    success: "true"
+                reindex().then((data)=>{
+
+                    var result = new Array();
+                    data.forEach(function(certificate) {
+                        if((certificate.subject).toString().split("/")[6].includes(req.body.username) == true) {
+                            result.push(certificate);
+                        }
+                    });
+
+                    res.json({
+                        success: "true",
+                        data: result
+                    });
                 });
             }
             else{
