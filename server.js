@@ -158,60 +158,61 @@ const checkCertificateValidity = (daysRemaining, valid) => {
 
         // Broadcast message to specific connected client
         return new Promise(async function(resolve, reject) {
-            const ccc = await Array.from(wss.clients).find(client => client.id == req.identity);
+            const ccc = await Array.from(wss.clients).find(client => (client.readyState === client.OPEN && client.id == req.identity));
             resolve(ccc)
         }).then((client)=>{
 
             if(client != undefined){
                 if(checkCertificateValidity(daysRemaining, valid) == true){
                     // console.log(ocspCache.cache);
-                    // Check status of the certificates
-                    if(!onlineclients.has(req.identity)){
-                        online.onlineAPI(app, wss, client);
-                        // Check revoke status of the certificates
-                        ocsp.check({cert: rawCert, issuer: rawIssuer}, function(err, res) {
-                            if(err) {
-                                console.log(err.message);
-                                client.send('Failed to obtain OCSP response!');
+                    
+                    online.onlineAPI(app, wss, client);
+                    // Check revoke status of the certificates
+                    ocsp.check({cert: rawCert, issuer: rawIssuer}, function(err, res) {
+                        if(err) {
+                            console.log(err.message);
+                            client.send(err.message);
+                            if(err.message == "OCSP Status: revoked"){
+                                client.send("Please update the user certificate");
+                            }
+                            else{
                                 client.close();
-                            } else {
-                                console.log(res.type);
-                                var status = res.type;
+                            }                         
+                        } else {
+                            console.log(res.type);
+                            var status = res.type;
 
-                                if(status == 'good'){
-                                    // Add client to the online client list
-                                    onlineclients.add(req.identity);
+                            // Check status of the certificates
+                            if(status == 'good' && !onlineclients.has(req.identity)){
+                                // Add client to the online client list
+                                onlineclients.add(req.identity);
 
-                                    console.log("Connected Charger ID: "  + client.id);
-                                    client.send("Connected to the server");
+                                console.log("Connected Charger ID: "  + client.id);
+                                client.send("Connected to the server");
 
-                                    // Send and resive data
-                                    client.on('message', function incoming(message) {
-                                        // console.log("From client: ", client.id, ": ", message.toString());
-                                        // let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
-                                        // client.send(traResRow)
-                                    });
+                                // Send and resive data
+                                client.on('message', function incoming(message) {
+                                    // console.log("From client: ", client.id, ": ", message.toString());
+                                    // let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
+                                    // client.send(traResRow)
+                                });
 
-                                    // Client disconnected event
-                                    client.on('close', function () {
-                                        // Client remove from online client set
-                                        onlineclients.delete(client.id);
-                                        console.log('Client disconnected '+ client.id);
-                                        console.log(onlineclients);
-                                        client.close();
-                                        restartServer();
-                                    });
-
-                                }else{
-                                    client.send('Certificate is revoked!');
-                                }
-                            }                              
-                        });
-                    }
-                    else{
-                        // online.onlineAPI(app, wss);
-                        client.send("Client already connected!");
-                    }
+                                // Client disconnected event
+                                client.on('close', function () {
+                                    // Client remove from online client set
+                                    onlineclients.delete(client.id);
+                                    console.log('Client disconnected '+ client.id);
+                                    console.log(onlineclients);
+                                    client.close();
+                                    restartServer();
+                                });
+                            }
+                            else{
+                                // online.onlineAPI(app, wss, client);
+                                client.send("Client already connected!");
+                            }
+                        }                              
+                    });      
                 }
                 else{
                     client.send("Client certificate expired!");
