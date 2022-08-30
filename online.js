@@ -117,7 +117,7 @@ const onlineAPI = function(app, wss, client) {
     var events = wsEvents(client);
 
 
-    app.post(apipath + '/updatepass/', function(req, res) {
+    app.post(apipath + '/updatepass/', async function(req, res) {
         console.log("Admin is requesting to update Basic auth password of client " + req.body.username);
         var newhash = crypto.createHash('sha256').update(req.body.username + ':' + req.body.newpasswd).digest('hex');
         var hash = crypto.createHash('sha256').update(req.body.username + ':' + req.body.passwd).digest('hex');
@@ -182,7 +182,7 @@ const onlineAPI = function(app, wss, client) {
         });
     });
     
-    app.post(apipath + '/updatecertcsms/', function(req, res) {
+    app.post(apipath + '/updatecertcsms/', async function(req, res) {
         console.log("Admin is requesting to update charging station " + req.body.username + " cert by using CSMS");
 
         return new Promise(async function(resolve, reject) {
@@ -318,6 +318,56 @@ const onlineAPI = function(app, wss, client) {
     events.on('SecurityEventNotificationRequest', (ack) => {
         events.emit('SecurityEventNotificationResponse', {
             state: ack.state
+        });
+    });
+
+    app.post(apipath + '/reboot/', async function(req, res) {
+        console.log("Admin is requesting to reboot the charging station: " + req.body.username);
+
+        res.json({
+            success: "true",
+            result: "Charging station: " + req.body.username+ " reboot after 10 sec"
+        });
+
+        return new Promise(async function(resolve, reject) {
+            const ccc = await Array.from(wss.clients).find(client => (client.readyState === client.OPEN && client.id == req.body.username));
+            resolve(ccc)
+        }).then((client)=>{
+            if(client != undefined){
+                function closeClient() {
+                    return new Promise((resolve) => {
+                      setTimeout(() => {
+                        client.close();
+                        resolve();
+                      }, 10000);
+                    });
+                }
+                  
+                function rebootPi() {
+                    return new Promise((resolve) => {
+                        setTimeout(() => {
+                            console.log("Reboting...");
+
+                            // function execute(command, callback){
+                            //     exec(command, function(error, stdout, stderr){ callback(stdout); });
+                            // }
+                            // execute('sudo reboot -h now', function(callback){
+                            //     console.log(callback);
+                            // });
+
+                            resolve();
+                        }, 1000);
+                    });
+                }
+
+                async function sequentialStart() {
+                    await closeClient();
+                    await rebootPi();
+                }
+
+                sequentialStart();
+                  
+            }
         });
     });
 };
