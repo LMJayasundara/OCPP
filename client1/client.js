@@ -80,11 +80,8 @@ var createClient = function(commonname) {
     var locality = 'COL';
     var organization = 'VEGA';
     var unit = 'CG';
-
-    const pkidir = path.resolve(__dirname + '/pki/').split(path.sep).join("/")+"/";
-
+    
     openssl_client = fs.readFileSync(__dirname + '/openssl_client.cnf.tpl', 'utf8');
-    openssl_client = openssl_client.replace(/{basedir}/g, pkidir + 'intermediate');
     openssl_client = openssl_client.replace(/{rootname}/g, rootname);
     openssl_client = openssl_client.replace(/{chainname}/g, chainname);
     openssl_client = openssl_client.replace(/{name}/g, username);
