@@ -13,6 +13,23 @@ const wsEvents = require('ws-events');
 var exec = require('child_process').exec;
 const { validateSSLCert } = require('ssl-validator');
 
+// Remove old certificate dirs
+function getDirectories(path) {
+    return fs.readdirSync(path).filter(function (file) {
+      return fs.statSync(path+'/'+file).isDirectory();
+    });
+};
+
+getDirectories(__dirname).forEach(function(name) {
+    if((name.split("_")[1]) != undefined){
+        var exp = (Date.now() - (name.split("_")[1]))/(1000 * 60 * 60 * 24);
+        if(exp >= 30){
+            fs.rmSync(path.resolve(__dirname + "\\"+ name), { recursive: true, force: true });
+            console.log("Removed dir: ", name);
+        }
+    }
+});
+
 // Check password and by username
 const gethash = function(id) {
     return new Promise(function(resolve, reject) {
