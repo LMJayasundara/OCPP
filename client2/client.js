@@ -13,6 +13,28 @@ const wsEvents = require('ws-events');
 var exec = require('child_process').exec;
 const { validateSSLCert } = require('ssl-validator');
 
+/* 
+    #################################
+     Self check the charging station 
+    #################################
+*/
+
+// Check requirement files and folders are exist
+const requirement = [username, 'ca-chain.cert.pem', 'credential.db', username+'/certs/client.cert.pem', username+'/private/client.key.pem']
+
+function checkFileExist() {
+    return new Promise(function(resolve, reject) {
+        requirement.forEach((dir)=>{
+            fs.pathExists(__dirname +'\\'+ dir, (err, exists)=>{
+                if(exists == false){
+                    console.log("Not Exist: ", dir);
+                }
+            });
+            resolve();
+        });
+    });
+};
+
 // Remove old certificate dirs
 function getDirectories(path) {
     return fs.readdirSync(path).filter(function (file) {
@@ -29,6 +51,12 @@ getDirectories(__dirname).forEach(function(name) {
         }
     }
 });
+
+/* 
+    ###############
+     API Functions
+    ###############
+*/
 
 // Check password and by username
 const gethash = function(id) {
@@ -80,11 +108,8 @@ var createClient = function(commonname) {
     var locality = 'COL';
     var organization = 'VEGA';
     var unit = 'CG';
-
-    const pkidir = path.resolve(__dirname + '/pki/').split(path.sep).join("/")+"/";
-
+    
     openssl_client = fs.readFileSync(__dirname + '/openssl_client.cnf.tpl', 'utf8');
-    openssl_client = openssl_client.replace(/{basedir}/g, pkidir + 'intermediate');
     openssl_client = openssl_client.replace(/{rootname}/g, rootname);
     openssl_client = openssl_client.replace(/{chainname}/g, chainname);
     openssl_client = openssl_client.replace(/{name}/g, username);
@@ -165,6 +190,14 @@ function startWebsocket() {
                 // sTrans.eventType = "Started";
                 // sTrans.timestamp = Date.now();
                 // ws.send(JSON.stringify(sTrans));
+
+                evt.emit("BootNotificationRequest", {
+                    reason: "PowerUp",
+                    chargingStation: {
+                        model: "model_"+username,
+                        vendorName: "vendorName_"+username
+                    }
+                });
             });
 
             // Trigger event when server send message
@@ -326,6 +359,10 @@ function startWebsocket() {
                 timestamp: new Date()
             });
 
+            evt.on("BootNotificationResponse", (ack)=>{
+                console.log(ack);
+            });
+
         }
         else{
             console.log("Id not include in data base");
@@ -362,4 +399,6 @@ function checkCert(){
     });
 };
 
-startWebsocket();
+checkFileExist().then(()=>{
+    startWebsocket();
+});
