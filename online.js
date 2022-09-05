@@ -373,11 +373,11 @@ const onlineAPI = function(app, wss, client) {
 
     events.on('BootNotificationRequest', async (ack) => {
         console.log(ack);
-        events.emit('BootNotificationResponse', {
-            state: "Accepted",
-            currentTime: Date.now(),
-            interval: 1000
-        });
+        // events.emit('BootNotificationResponse', {
+        //     state: "Accepted",
+        //     currentTime: Date.now(),
+        //     interval: 1000
+        // });
     });
 
 };

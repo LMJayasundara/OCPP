@@ -7,6 +7,7 @@ const path = require('path');
 const username = "ID001";
 const URL = "wss://localhost:8080/";
 var reconn = null;
+var boot_reconn = null;
 const DB_FILE_PATH = path.join('credential.db');
 
 const wsEvents = require('ws-events');
@@ -190,16 +191,8 @@ function startWebsocket() {
                 // sTrans.eventType = "Started";
                 // sTrans.timestamp = Date.now();
                 // ws.send(JSON.stringify(sTrans));
-
-                evt.emit("BootNotificationRequest", {
-                    reason: "PowerUp",
-                    chargingStation: {
-                        model: username,
-                        vendorName: "vendorName_"+username
-                    }
-                });
             });
-
+            
             // Trigger event when server send message
             ws.on('message', function(res) {
                 // If msg is in JSON format
@@ -359,10 +352,74 @@ function startWebsocket() {
                 timestamp: new Date()
             });
 
-            evt.on("BootNotificationResponse", (ack)=>{
-                console.log(ack);
-            });
+            function BootNotificationRequest() {
+                return new Promise(function(resolve, reject) {
+                    try {
+                        evt.emit("BootNotificationRequest", {
+                            reason: "PowerUp",
+                            chargingStation: {
+                                model: username,
+                                vendorName: "vendorName_"+username
+                            }
+                        });
+                    } catch (error) {
+                        console.log(error.message);
+                    } finally{
+                        resolve();
+                    }
+                });
+            };
 
+            function BootNotificationResponse() {
+                var xxx = null;
+                // return new Promise(function(resolve, reject) {
+                    try {
+                        console.log("xxx1", xxx);
+                        function look() {
+                            return new Promise(function(resolve, reject) {
+                                evt.on("BootNotificationResponse", (ack)=>{
+                                    console.log(ack);
+                                    xxx = ack;
+                                    resolve();
+                                });
+                            });
+                        };
+
+                        look().then(()=>{
+                            console.log("xxx2", xxx);
+                        }).finally(()=>{
+                            console.log("xxx3", xxx);
+                        });
+
+                    } catch (error) {
+                        console.log(error.message);
+                    }
+                // });
+            };
+
+            BootNotificationRequest();
+            BootNotificationResponse();
+            // .then((data)=>{
+            //     console.log("data",data);
+            // });
+
+            // BootNotificationResponse().then((data)=>{
+            //     console.log(data);
+            // }).catch((err)=>{
+            //     console.log(err);
+            // });
+            // console.log("BootNotificationRequest:");
+            // BootNotificationResponse().then((ack)=>{
+            //     if(ack != null){
+            //         clearInterval(reconn);
+            //         console.log("BootNotificationResponse:", ack);
+            //     }
+            //     else{
+            //         console.log("BootNotificationResponse:", ack);
+            //         reconn = setTimeout(startWebsocket, 5000);
+            //     }
+            // });
+            
         }
         else{
             console.log("Id not include in data base");
