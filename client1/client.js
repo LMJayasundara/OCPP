@@ -7,6 +7,7 @@ const path = require('path');
 const username = "ID001";
 const URL = "wss://localhost:8080/";
 var reconn = null;
+var boot_reconn = null;
 const DB_FILE_PATH = path.join('credential.db');
 
 const wsEvents = require('ws-events');
@@ -190,16 +191,8 @@ function startWebsocket() {
                 // sTrans.eventType = "Started";
                 // sTrans.timestamp = Date.now();
                 // ws.send(JSON.stringify(sTrans));
-
-                evt.emit("BootNotificationRequest", {
-                    reason: "PowerUp",
-                    chargingStation: {
-                        model: username,
-                        vendorName: "vendorName_"+username
-                    }
-                });
             });
-
+            
             // Trigger event when server send message
             ws.on('message', function(res) {
                 // If msg is in JSON format
@@ -359,10 +352,49 @@ function startWebsocket() {
                 timestamp: new Date()
             });
 
-            evt.on("BootNotificationResponse", (ack)=>{
-                console.log(ack);
-            });
+            //////// need to fixx the boot notifiacation ////////
 
+            // function BootNotificationRequest() {
+            //     return new Promise(function(resolve, reject) {
+            //         try {
+            //             evt.emit("BootNotificationRequest", {
+            //                 reason: "PowerUp",
+            //                 chargingStation: {
+            //                     model: username,
+            //                     vendorName: "vendorName_"+username
+            //                 }
+            //             });
+            //             resolve();
+            //         } catch (error) {
+            //             console.log(error.message);
+            //         }
+            //     });
+            // };
+
+            // function BootNotificationResponse() {
+            //     try {
+            //         function look() {
+            //             return new Promise(function(resolve, reject) {
+            //                 evt.on("BootNotificationResponse", (ack)=>{
+            //                     console.log(ack);
+            //                     resolve();
+            //                 });
+            //             });
+            //         };
+
+            //         look().catch((err)=>{
+            //             console.log(err);
+            //         });
+
+            //     } catch (error) {
+            //         console.log(error.message);
+            //     }
+            // };
+
+            // BootNotificationRequest().then(()=>{
+            //     BootNotificationResponse();
+            // });
+            
         }
         else{
             console.log("Id not include in data base");
