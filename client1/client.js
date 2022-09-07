@@ -352,72 +352,47 @@ function startWebsocket() {
                 timestamp: new Date()
             });
 
-            function BootNotificationRequest() {
-                return new Promise(function(resolve, reject) {
-                    try {
-                        evt.emit("BootNotificationRequest", {
-                            reason: "PowerUp",
-                            chargingStation: {
-                                model: username,
-                                vendorName: "vendorName_"+username
-                            }
-                        });
-                    } catch (error) {
-                        console.log(error.message);
-                    } finally{
-                        resolve();
-                    }
-                });
-            };
+            //////// need to fixx the boot notifiacation ////////
 
-            function BootNotificationResponse() {
-                var xxx = null;
-                // return new Promise(function(resolve, reject) {
-                    try {
-                        console.log("xxx1", xxx);
-                        function look() {
-                            return new Promise(function(resolve, reject) {
-                                evt.on("BootNotificationResponse", (ack)=>{
-                                    console.log(ack);
-                                    xxx = ack;
-                                    resolve();
-                                });
-                            });
-                        };
+            // function BootNotificationRequest() {
+            //     return new Promise(function(resolve, reject) {
+            //         try {
+            //             evt.emit("BootNotificationRequest", {
+            //                 reason: "PowerUp",
+            //                 chargingStation: {
+            //                     model: username,
+            //                     vendorName: "vendorName_"+username
+            //                 }
+            //             });
+            //             resolve();
+            //         } catch (error) {
+            //             console.log(error.message);
+            //         }
+            //     });
+            // };
 
-                        look().then(()=>{
-                            console.log("xxx2", xxx);
-                        }).finally(()=>{
-                            console.log("xxx3", xxx);
-                        });
+            // function BootNotificationResponse() {
+            //     try {
+            //         function look() {
+            //             return new Promise(function(resolve, reject) {
+            //                 evt.on("BootNotificationResponse", (ack)=>{
+            //                     console.log(ack);
+            //                     resolve();
+            //                 });
+            //             });
+            //         };
 
-                    } catch (error) {
-                        console.log(error.message);
-                    }
-                // });
-            };
+            //         look().catch((err)=>{
+            //             console.log(err);
+            //         });
 
-            BootNotificationRequest();
-            BootNotificationResponse();
-            // .then((data)=>{
-            //     console.log("data",data);
-            // });
-
-            // BootNotificationResponse().then((data)=>{
-            //     console.log(data);
-            // }).catch((err)=>{
-            //     console.log(err);
-            // });
-            // console.log("BootNotificationRequest:");
-            // BootNotificationResponse().then((ack)=>{
-            //     if(ack != null){
-            //         clearInterval(reconn);
-            //         console.log("BootNotificationResponse:", ack);
+            //     } catch (error) {
+            //         console.log(error.message);
             //     }
-            //     else{
-            //         console.log("BootNotificationResponse:", ack);
-            //         reconn = setTimeout(startWebsocket, 5000);
-            //     }
+            // };
+
+            // BootNotificationRequest().then(()=>{
+            //     BootNotificationResponse();
             // });
             
         }
