@@ -386,26 +386,54 @@ const onlineAPI = function(app, wss, client) {
         console.log("Url: ", req.body.url);
         console.log("Retrieved: ", req.body.retrieved);
         console.log("Retry: ", req.body.retry);
-
         var filename = "Firmware.zip";
+
+        var sizeOf = function() {
+            return new Promise(function(resolve, reject) {
+                s3.headObject({ Bucket: BUCKET_NAME, Key: filename }, function(err, res){
+                    if(err == null){
+                        resolve(res.ContentLength);
+                    }
+                });
+            });
+        };
+
         const downloadFile = async (filename) => {
             try {
-              const res = await s3.getObject({ Bucket: BUCKET_NAME, Key: filename }).createReadStream();
-              return { success: true, data: res }
+                const res = s3.getObject({ Bucket: BUCKET_NAME, Key: filename }).createReadStream();
+                return { success: true, data: res}
             } catch(error) {
-              return { success: false, data: null }
+                return { success: false, data: null }
             }
-        }
-        const { success, data } = await downloadFile(filename)
+        };
+
+        const { success, data } = await downloadFile(filename);
         if (success) {
-            // console.log(data);
-            let writeStream = fs.createWriteStream(path.join(__dirname, 'test.zip'));
-            data.pipe(writeStream);
-            data.on('end', function() {
-                console.log('File Downloaded!');
+            sizeOf().then((size)=>{
+                try {
+                    let writeStream = fs.createWriteStream(path.join(__dirname, 'test.zip'));
+                    data.pipe(writeStream);
+        
+                    let downloaded = 0;
+                    let percent = 0;
+        
+                    data.on('data', function(chunk){
+                        downloaded += chunk.length;
+                        percent = (100.0 * downloaded / size).toFixed(2);
+                        process.stdout.write(`Downloading ${percent}%\r`)
+                    })
+                    .on('end', function() {
+                        console.log('\nFile Downloaded!');
+                    })
+                    .on('error', function (err) {
+                        console.log(err);
+                    })
+                    return res.json({ success, message: 'File Downloading...' });
+                } catch (error) {
+                    console.log(error.message);
+                }
             });
-            return res.json({ success, message: 'File Downloading...' });
-        }
+        };
         return res.status(500).json({ success: false, message: 'Error Occured !!!'});
     });
 
