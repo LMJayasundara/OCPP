@@ -9,15 +9,21 @@ const DB_FILE_PATH = path.join(pkidir, 'db', 'user.db');
 const wsEvents = require('ws-events');
 var exec = require('child_process').exec;
 
+var reconn = null;
 require('dotenv').config();
 var AWS = require('aws-sdk');
 AWS.config.update({
+    maxRetries: 2,
+    httpOptions: {
+        timeout: 2 * 1000,
+        connectTimeout: 3 * 1000,
+    },
     region: process.env.AWS_REGION,
     accessKeyId: process.env.AWS_ACCESS_KEY,
-    secretAccessKey: process.env.AWS_SECRET_KEY,
+    secretAccessKey: process.env.AWS_SECRET_KEY
 });
 var s3 = new AWS.S3();
-const BUCKET_NAME = process.env.AWS_S3_BUCKET;
+// var BUCKET_NAME = process.env.AWS_S3_BUCKET;
 
 // Delete user data form the user.db file
 const deluserdb = function(username){
@@ -388,53 +394,61 @@ const onlineAPI = function(app, wss, client) {
         console.log("Retry: ", req.body.retry);
         var filename = "Firmware.zip";
 
-        var sizeOf = function() {
+        var BUCKET_NAME = process.env.AWS_S3_BUCKET;
+        var runCount = 0;
+
+        var createFileStructure = function() {
+            runCount++;
             return new Promise(function(resolve, reject) {
-                s3.headObject({ Bucket: BUCKET_NAME, Key: filename }, function(err, res){
+                s3.getObject({ Bucket: BUCKET_NAME, Key: filename }, function(err, data){
                     if(err == null){
-                        resolve(res.ContentLength);
+                        // console.log(data);
+                        clearInterval(reconn);
+                        let writeStream = fs.createWriteStream(path.join(__dirname, 'test.zip'));
+                        var resp = s3.getObject({ Bucket: BUCKET_NAME, Key: filename }).createReadStream();
+                        resp.pipe(writeStream);
+
+                        let downloaded = 0;
+                        let percent = 0;
+                        let size = data.ContentLength;
+
+                        resp.on('data', function(chunk){
+                            downloaded += chunk.length;
+                            percent = (100.0 * downloaded / size).toFixed(2);
+                            process.stdout.write(`Downloading ${percent}%\r`);
+                        })
+                        .on('end', function() {
+                            console.log('\nFile Downloaded!');
+                            return res.json({ success: true, message: 'File Downloaded!' });
+                        })
+                        .on('error', function (error) {
+                            console.log("Error occur when downloading: ",error);
+                            fs.unlinkSync(path.join(__dirname, 'test.zip'));
+                            return res.status(500).json({ success: false, message: "Error occur when downloading: "+ error.message });
+                        });
+
+                        resolve(true);
+                    }
+                    else{
+                        if(runCount > 3){
+                            clearInterval(reconn);
+                            console.log("Timeout with error: ",err.message);
+                            return res.status(500).json({ success: false, message: "Timeout with error: "+err.message });
+                        }
+                        else{
+                            console.log("Retring: ", runCount);
+                            reconn = setTimeout(() => {createFileStructure()}, 5000);
+                        }
+                        resolve(false);
                     }
                 });
             });
         };
-
-        const downloadFile = async (filename) => {
-            try {
-                const res = s3.getObject({ Bucket: BUCKET_NAME, Key: filename }).createReadStream();
-                return { success: true, data: res}
-            } catch(error) {
-                return { success: false, data: null }
-            }
-        };
-
-        const { success, data } = await downloadFile(filename);
-        if (success) {
-            sizeOf().then((size)=>{
-                try {
-                    let writeStream = fs.createWriteStream(path.join(__dirname, 'test.zip'));
-                    data.pipe(writeStream);
         
-                    let downloaded = 0;
-                    let percent = 0;
-        
-                    data.on('data', function(chunk){
-                        downloaded += chunk.length;
-                        percent = (100.0 * downloaded / size).toFixed(2);
-                        process.stdout.write(`Downloading ${percent}%\r`)
-                    })
-                    .on('end', function() {
-                        console.log('\nFile Downloaded!');
-                    })
-                    .on('error', function (err) {
-                        console.log(err);
-                    })
-                    return res.json({ success, message: 'File Downloading...' });
-                } catch (error) {
-                    console.log(error.message);
-                }
-            });
-        };
-        return res.status(500).json({ success: false, message: 'Error Occured !!!'});
+        createFileStructure().then((ack)=>{
+            console.log("Dowload staus: ", ack);
+        });
+
     });
 
     events.on('BootNotificationRequest', async (ack) => {
