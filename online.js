@@ -393,78 +393,9 @@ const onlineAPI = function(app, wss, client) {
         console.log("Retrieved: ", req.body.retrieved);
         console.log("Retry: ", req.body.retry);
         var filename = "Firmware.zip";
-        
-        // var downloaded = false;
-        // var sizeOf = async function() {
-        //     return new Promise(function(resolve, reject) {
-        //         s3.headObject({ Bucket: BUCKET_NAME, Key: filename }, function(err, res){
-        //             if(err == null){
-        //                 resolve(res.ContentLength);
-        //             }
-        //         });
-        //     });
-        // };
-
-        // const downloadFile = async (filename) => {
-        //     try {
-        //         // clearInterval(reconn);
-        //         const res = s3.getObject({ Bucket: BUCKET_NAME, Key: filename }).createReadStream();
-        //         // return { success: true, data: res}
-        //         await startDownload(true, res);
-        //     } catch(error) {
-        //         // return { success: false, data: null }
-        //         console.log("Download file error: ",error.message);
-        //         if(downloaded == false){
-        //             console.log("Retrying to download...");
-        //             reconn = setTimeout(async() => {
-        //                 await startDownload(true, res);
-        //             }, 1000 * 30);
-        //         }
-        //     }
-        // };
-
-        // const { success, data } = await downloadFile(filename);
-        // const startDownload = async (success, data) => {
-        //     if (success) {
-        //         sizeOf().then((size)=>{
-        //             try {
-        //                 let writeStream = fs.createWriteStream(path.join(__dirname, 'test.zip'));
-        //                 data.pipe(writeStream);
-            
-        //                 let downloaded = 0;
-        //                 let percent = 0;
-            
-        //                 data.on('data', function(chunk){
-        //                     downloaded += chunk.length;
-        //                     percent = (100.0 * downloaded / size).toFixed(2);
-        //                     process.stdout.write(`Downloading ${percent}%\r`);
-        //                 })
-        //                 .on('end', function() {
-        //                     console.log('\nFile Downloaded!');
-        //                     downloaded = true;
-        //                     return res.json({ success, message: 'File Downloaded!' });
-        //                 })
-        //                 .on('error', function (error) {
-        //                     console.log(error);
-        //                     downloaded = false;
-        //                     fs.unlinkSync(path.join(__dirname, 'test.zip'));
-        //                     return res.status(500).json({ success: false, message: error.message });
-        //                 })
-        //             } catch (error) {
-        //                 console.log(error.message);
-        //                 return res.status(500).json({ success: false, message: error.message });
-        //             }
-        //         });
-        //     }
-        //     else{
-        //         return res.status(500).json({ success: false, message: 'Error Occured!' });
-        //     }
-        // };
-        // await downloadFile(filename);
 
         var BUCKET_NAME = process.env.AWS_S3_BUCKET;
         var runCount = 0;
-        const { Readable } = require("stream");
 
         var createFileStructure = function() {
             runCount++;
