@@ -6,6 +6,8 @@ var exec = require('child_process').exec;
 var path = require('path');
 
 const pkidir = path.resolve(__dirname + '/pki/').split(path.sep).join("/")+"/";
+const firmdir = path.resolve(__dirname + '/firm/').split(path.sep).join("/")+"/";
+
 global.config = yaml.load(fs.readFileSync('config/config.yml', 'utf8'));
 
 var createFileStructure = function() {
@@ -13,6 +15,7 @@ var createFileStructure = function() {
 
     return new Promise(function(resolve, reject) {
         fs.ensureDirSync(pkidir);
+        fs.ensureDirSync(firmdir);
 
         // Prepare root dir
         fs.ensureDirSync(pkidir + 'root');
@@ -34,6 +37,28 @@ var createFileStructure = function() {
         openssl_root = openssl_root.replace(/{unit}/g, global.config.ca.root.unit);
         openssl_root = openssl_root.replace(/{commonname}/g, global.config.ca.root.commonname);
         fs.writeFileSync(pkidir + 'root/openssl.cnf', openssl_root);
+
+        // Prepare root dir
+        fs.ensureDirSync(firmdir + 'root');
+        fs.ensureDirSync(firmdir + 'root/certs');
+        fs.ensureDirSync(firmdir + 'root/private');
+        fs.ensureDirSync(firmdir + 'root/newcerts');
+        fs.ensureDirSync(firmdir + 'root/crl');
+        fs.writeFileSync(firmdir + 'root/index.txt', '', 'utf8');
+        fs.writeFileSync(firmdir + 'root/serial', '1000', 'utf8');
+
+        openssl_frimroot = fs.readFileSync(__dirname + '/openssl_template/openssl_root.cnf.tpl', 'utf8');
+        console.log(firmdir + 'root');
+        openssl_frimroot = openssl_frimroot.replace(/{basedir}/g, firmdir + 'root');
+        openssl_frimroot = openssl_frimroot.replace(/{rootname}/g, global.config.ca.firmroot.rootname);
+        openssl_frimroot = openssl_frimroot.replace(/{days}/g, global.config.ca.firmroot.days);
+        openssl_frimroot = openssl_frimroot.replace(/{country}/g, global.config.ca.firmroot.country);
+        openssl_frimroot = openssl_frimroot.replace(/{state}/g, global.config.ca.firmroot.state);
+        openssl_frimroot = openssl_frimroot.replace(/{locality}/g, global.config.ca.firmroot.locality);
+        openssl_frimroot = openssl_frimroot.replace(/{organization}/g, global.config.ca.firmroot.organization);
+        openssl_frimroot = openssl_frimroot.replace(/{unit}/g, global.config.ca.firmroot.unit);
+        openssl_frimroot = openssl_frimroot.replace(/{commonname}/g, global.config.ca.firmroot.commonname);
+        fs.writeFileSync(firmdir + 'root/openssl.cnf', openssl_frimroot);
 
         // Prepare intermediate dir
         fs.ensureDirSync(pkidir + 'intermediate');
@@ -117,6 +142,26 @@ var createFileStructure = function() {
         openssl_client = openssl_client.replace(/{commonname}/g, global.config.ca.admin.commonname);
         fs.writeFileSync(pkidir + 'admin/openssl.cnf', openssl_client);
 
+        // Prepare client dir
+        fs.ensureDirSync(firmdir + 'admin');
+        fs.ensureDirSync(firmdir + 'admin/certs');
+        fs.ensureDirSync(firmdir + 'admin/private');
+        fs.ensureDirSync(firmdir + 'admin/csr');
+
+        openssl_firmclient = fs.readFileSync(__dirname + '/openssl_template/openssl_client.cnf.tpl', 'utf8');
+        openssl_firmclient = openssl_firmclient.replace(/{basedir}/g, firmdir + 'root');
+        openssl_firmclient = openssl_firmclient.replace(/{rootname}/g, global.config.ca.firmadmin.rootname);
+        openssl_firmclient = openssl_firmclient.replace(/{chainname}/g, global.config.ca.firmadmin.rootname);
+        openssl_firmclient = openssl_firmclient.replace(/{name}/g, global.config.ca.firmadmin.name);
+        openssl_firmclient = openssl_firmclient.replace(/{days}/g, global.config.ca.firmadmin.days);
+        openssl_firmclient = openssl_firmclient.replace(/{country}/g, global.config.ca.firmadmin.country);
+        openssl_firmclient = openssl_firmclient.replace(/{state}/g, global.config.ca.firmadmin.state);
+        openssl_firmclient = openssl_firmclient.replace(/{locality}/g, global.config.ca.firmadmin.locality);
+        openssl_firmclient = openssl_firmclient.replace(/{organization}/g, global.config.ca.firmadmin.organization);
+        openssl_firmclient = openssl_firmclient.replace(/{unit}/g, global.config.ca.firmadmin.unit);
+        openssl_firmclient = openssl_firmclient.replace(/{commonname}/g, global.config.ca.firmadmin.commonname);
+        fs.writeFileSync(firmdir + 'admin/openssl.cnf', openssl_firmclient);
+
         resolve();
     });
 };
@@ -132,6 +177,25 @@ var createRootCA = function() {
             // Create Root certificate
             exec('openssl req -config openssl.cnf -key private/root.key.pem -new -x509 -days ' + global.config.ca.root.days + ' -sha256 -extensions v3_ca -out certs/root.cert.pem -passin pass:' + global.config.ca.root.passphrase, {
                 cwd: pkidir + 'root'
+            }, function(err) {
+                console.log("Create Root CA err: ", err);
+                resolve();
+            });
+        });
+    });
+};
+
+var createFirmRootCA = function() {
+    console.log(">>> Creating Firm Root CA");
+
+    return new Promise(function(resolve, reject) {
+        // Create root key
+        exec('openssl genrsa -out private/firmroot.key.pem 4096', {
+            cwd: firmdir + 'root'
+        }, function() {
+            // Create Root certificate
+            exec('openssl req -config openssl.cnf -key private/firmroot.key.pem -new -x509 -days ' + global.config.ca.firmroot.days + ' -sha256 -extensions v3_ca -out certs/firmroot.cert.pem', {
+                cwd: firmdir + 'root'
             }, function(err) {
                 console.log("Create Root CA err: ", err);
                 resolve();
@@ -249,6 +313,31 @@ var createClient = function() {
     });
 }
 
+var createFirmClient = function() {
+    console.log(">>> Creating Firm Admin Keys")
+
+    return new Promise(function(resolve, reject) {
+        // Create key
+        exec('openssl genrsa -out private/admin.key.pem 4096', {
+            cwd: firmdir + 'admin'
+        }, function() {
+            // Create request
+            exec('openssl req -config openssl.cnf -new -sha256 -key private/admin.key.pem -out csr/admin.csr.pem', {
+                cwd: firmdir + 'admin'
+            }, function() {
+                // Create certificate
+                exec('openssl ca -config openssl.cnf -extensions usr_cert -days 3650 -notext -md sha256 -in csr/admin.csr.pem -out certs/admin.cert.pem -batch', {
+                    cwd: firmdir + 'admin'
+                }, function(err) {
+                    console.log("Create Admin Keys Err: ", err);
+                    fs.removeSync(firmdir + 'admin/csr/admin.csr.pem');
+                    resolve();
+                });
+            });
+        });
+    });
+}
+
 // var setFilePerms = function() {
 //     console.log(">>> Setting file permissions")
 
@@ -271,9 +360,11 @@ function create() {
     return new Promise(function(resolve, reject) {
         createFileStructure().then(function() {
             createRootCA().then(function() {
+            createFirmRootCA().then(function() {
                 createIntermediateCA().then(function() {
                     createServer().then(function() {
                         createClient().then(function() {
+                        createFirmClient().then(function() {
                             createOCSPKeys().then(function() {
                                 console.log("All Done!");
                                 resolve()
@@ -281,6 +372,10 @@ function create() {
                             .catch(function(err) {
                                 reject("Error: " + err)
                             });
+                        })
+                        .catch(function(err) {
+                            reject("Error: " + err)
+                        });
                         })
                         .catch(function(err) {
                             reject("Error: " + err)
@@ -297,6 +392,10 @@ function create() {
             .catch(function(err) {
                 reject("Error: " + err)
             })
+            })
+            .catch(function(err) {
+                reject("Error: " + err)
+            });
         })
         .catch(function(err) {
             reject("Error: " + err)

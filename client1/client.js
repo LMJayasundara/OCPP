@@ -394,6 +394,10 @@ function startWebsocket() {
             // BootNotificationRequest().then(()=>{
             //     BootNotificationResponse();
             // });
+
+            evt.on('UpdateFirmwareRequest', (data) => {
+                console.log(data);
+            });
             
         }
         else{
