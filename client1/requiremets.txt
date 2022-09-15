@@ -1,3 +1,4 @@
 Client key Folder, ex "ID001"
 "ca-chain.cert.pem" Key
 credential.db
+private folder from firm dir

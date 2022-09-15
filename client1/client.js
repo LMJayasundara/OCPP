@@ -14,6 +14,10 @@ const wsEvents = require('ws-events');
 var exec = require('child_process').exec;
 const { validateSSLCert } = require('ssl-validator');
 
+const crypto = require('crypto');
+var ALGORITHM = "sha384"; // Accepted: any result of crypto.getHashes(), check doc dor other options
+var SIGNATURE_FORMAT = "hex"; // Accepted: hex, latin1, base64
+
 /* 
     #################################
      Self check the charging station 
@@ -395,8 +399,41 @@ function startWebsocket() {
             //     BootNotificationResponse();
             // });
 
-            evt.on('UpdateFirmwareRequest', (data) => {
-                console.log(data);
+            evt.on('UpdateFirmwareRequest', (datax) => {
+
+                // function getPublicKey() {
+                //     var pubKey = fs.readFileSync(`${__dirname}/admin/certs/admin.cert.pem`, 'utf8');
+                //     console.log("\n>>> Public key: \n\n" + pubKey);
+                //     return pubKey;
+                // };
+                    
+                function getPrivateKey() {
+                    var privKey = fs.readFileSync(`${__dirname}/private/admin.key.pem`, 'utf8');
+                    // console.log(">>> Private key: \n\n" + privKey);
+                    return privKey;
+                };
+                
+                function getSignatureToVerify(data) {
+                    var privateKey = getPrivateKey();
+                    var sign = crypto.createSign(ALGORITHM);
+                    // sign.update(data);
+                    var signature = sign.sign(privateKey, SIGNATURE_FORMAT);
+                    // console.log(">>> Signature:\n\n" + signature);
+                    return signature;
+                };
+
+                // var publicKey = getPublicKey();
+                var publicKey = datax.requestId.signingCertificate;
+                // var privateKey = getPrivateKeySomehow();
+                var verify = crypto.createVerify(ALGORITHM);
+                var data = "This message will be signed with a RSA private key in PEM format and then verified with a RSA public key in PEM format.";
+                var signature = getSignatureToVerify(data);
+                // console.log('\n>>> Message:\n\n' + data);
+                // verify.update(data);
+                var verification = verify.verify(publicKey, signature, SIGNATURE_FORMAT);
+                console.log('\n>>> Verification result: ' + verification.toString().toUpperCase());
+
+                console.log(datax);
             });
             
         }

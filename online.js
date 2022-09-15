@@ -414,7 +414,8 @@ const onlineAPI = function(app, wss, client) {
                         location: req.body.url,
                         retrieveDateTime: Date.now(),
                         installDateTime: req.body.datetime,
-                        signingCertificate: req.body.cert,
+                        signingCertificate: fs.readFileSync(`${__dirname}/firm/admin/certs/admin.cert.pem`, 'utf8'),
+                        // signingCertificate: (req.body.cert),
                         signature: req.body.sign
                     }
                 });
