@@ -389,64 +389,100 @@ const onlineAPI = function(app, wss, client) {
 
     app.post(apipath + '/update/', async function(req, res) {
         console.log("Admin is requesting to update firmware of the charging station: " + req.body.username);
-        console.log("Url: ", req.body.url);
-        console.log("Retrieved: ", req.body.retrieved);
         console.log("Retry: ", req.body.retry);
-        var filename = "Firmware.zip";
+        console.log("Interval: ", req.body.interval);
+        console.log("ID: ", req.body.id);
+        console.log("Url: ", req.body.url);
+        console.log("Datetime: ", req.body.datetime);
+        console.log("Cert: ", req.body.cert);
+        console.log("Sign: ", req.body.sign);
 
-        var BUCKET_NAME = process.env.AWS_S3_BUCKET;
-        var runCount = 0;
-
-        var createFileStructure = function() {
-            runCount++;
-            return new Promise(function(resolve, reject) {
-                s3.getObject({ Bucket: BUCKET_NAME, Key: filename }, function(err, data){
-                    if(err == null){
-                        // console.log(data);
-                        clearInterval(reconn);
-                        let writeStream = fs.createWriteStream(path.join(__dirname, 'test.zip'));
-                        var resp = s3.getObject({ Bucket: BUCKET_NAME, Key: filename }).createReadStream();
-                        resp.pipe(writeStream);
-
-                        let downloaded = 0;
-                        let percent = 0;
-                        let size = data.ContentLength;
-
-                        resp.on('data', function(chunk){
-                            downloaded += chunk.length;
-                            percent = (100.0 * downloaded / size).toFixed(2);
-                            process.stdout.write(`Downloading ${percent}%\r`);
-                        })
-                        .on('end', function() {
-                            console.log('\nFile Downloaded!');
-                            return res.json({ success: true, message: 'File Downloaded!' });
-                        })
-                        .on('error', function (error) {
-                            console.log("Error occur when downloading: ",error);
-                            fs.unlinkSync(path.join(__dirname, 'test.zip'));
-                            return res.status(500).json({ success: false, message: "Error occur when downloading: "+ error.message });
-                        });
-
-                        resolve(true);
-                    }
-                    else{
-                        if(runCount > 3){
-                            clearInterval(reconn);
-                            console.log("Timeout with error: ",err.message);
-                            return res.status(500).json({ success: false, message: "Timeout with error: "+err.message });
-                        }
-                        else{
-                            console.log("Retring: ", runCount);
-                            reconn = setTimeout(() => {createFileStructure()}, 5000);
-                        }
-                        resolve(false);
+        return new Promise(async function(resolve, reject) {
+            const ccc = await Array.from(wss.clients).find(client => (client.readyState === client.OPEN && client.id == req.body.username));
+            resolve(ccc)
+        }).then((client)=>{
+            if(client != undefined){
+                var events_update_firmware = wsEvents(client);
+                
+                var filename = "Firmware.zip";
+                
+                events_update_firmware.emit('UpdateFirmwareRequest', {
+                    retries: req.body.retry,
+                    retryInterval: req.body.interval,
+                    requestId: req.body.id,
+                    requestId:{
+                        location: req.body.url,
+                        retrieveDateTime: Date.now(),
+                        installDateTime: req.body.datetime,
+                        signingCertificate: fs.readFileSync(`${__dirname}/firm/admin/certs/admin.cert.pem`, 'utf8'),
+                        // signingCertificate: (req.body.cert),
+                        signature: req.body.sign
                     }
                 });
-            });
-        };
-        
-        createFileStructure().then((ack)=>{
-            console.log("Dowload staus: ", ack);
+
+                // var BUCKET_NAME = process.env.AWS_S3_BUCKET;
+                var BUCKET_NAME = req.body.url;
+                var runCount = 0;
+
+                var createFileStructure = function() {
+                    runCount++;
+                    return new Promise(function(resolve, reject) {
+                        s3.getObject({ Bucket: BUCKET_NAME, Key: filename }, function(err, data){
+                            if(err == null){
+                                // console.log(data);
+                                clearInterval(reconn);
+                                let writeStream = fs.createWriteStream(path.join(__dirname, 'test.zip'));
+                                var resp = s3.getObject({ Bucket: BUCKET_NAME, Key: filename }).createReadStream();
+                                resp.pipe(writeStream);
+
+                                let downloaded = 0;
+                                let percent = 0;
+                                let size = data.ContentLength;
+
+                                resp.on('data', function(chunk){
+                                    downloaded += chunk.length;
+                                    percent = (100.0 * downloaded / size).toFixed(2);
+                                    process.stdout.write(`Downloading ${percent}%\r`);
+                                })
+                                .on('end', function() {
+                                    console.log('\nFile Downloaded!');
+                                    return res.json({ success: true, message: 'File Downloaded!' });
+                                })
+                                .on('error', function (error) {
+                                    console.log("Error occur when downloading: ",error);
+                                    fs.unlinkSync(path.join(__dirname, 'test.zip'));
+                                    return res.status(500).json({ success: false, message: "Error occur when downloading: "+ error.message });
+                                });
+
+                                resolve(true);
+                            }
+                            else{
+                                if(runCount > req.body.retry){
+                                    clearInterval(reconn);
+                                    console.log("Timeout with error: ",err.message);
+                                    return res.status(500).json({ success: false, message: "Timeout with error: "+err.message });
+                                }
+                                else{
+                                    console.log("Retring: ", runCount);
+                                    reconn = setTimeout(() => {createFileStructure()}, req.body.interval);
+                                }
+                                resolve(false);
+                            }
+                        });
+                    });
+                };
+                
+                createFileStructure().then((ack)=>{
+                    console.log("Dowload staus: ", ack);
+                });
+
+            }
+            else{
+                res.json({
+                    success: "fasle",
+                    result: "Can not find client " + req.body.username
+                });
+            };
         });
 
     });

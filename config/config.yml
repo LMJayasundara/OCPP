@@ -9,6 +9,15 @@ ca:
       organization: 'VEGA'
       unit: 'CG'
       commonname: 'ROOT_CA'
+    firmroot:
+      rootname: 'firmroot'
+      days: 3650
+      country: 'LK'
+      state: 'WEST'
+      locality: 'COL'
+      organization: 'VEGA'
+      unit: 'CG'
+      commonname: 'FIRM_ROOT_CA'
     intermediate:
       rootname: 'intermediate'
       chainname: 'ca-chain'
@@ -57,3 +66,13 @@ ca:
       organization: 'VEGA'
       unit: 'CG'
       commonname: 'client.admin'
+    firmadmin:
+      rootname: 'firmroot'
+      name: 'firmadmin'
+      days: 365
+      country: 'LK'
+      state: 'WEST'
+      locality: 'COL'
+      organization: 'VEGA'
+      unit: 'CG'
+      commonname: 'firmclient.admin'

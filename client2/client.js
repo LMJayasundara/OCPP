@@ -363,6 +363,10 @@ function startWebsocket() {
                 console.log(ack);
             });
 
+            evt.on('UpdateFirmwareRequest', (data) => {
+                console.log(data);
+            });
+
         }
         else{
             console.log("Id not include in data base");
