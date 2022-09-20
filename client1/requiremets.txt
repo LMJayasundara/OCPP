@@ -1,4 +1,5 @@
-Client key Folder, ex "ID001"
-"ca-chain.cert.pem" Key
-credential.db
-private folder from firm dir
+Copy Client keys Folder from pki to ./ (root) folder
+Copy "ca-chain.cert.pem" from pki/intermediate/certs to ./ (root) folder
+Update credential.db
+Copy "client.key.pem" from firm/client/private to clientPrivate folder
+Copy "firmroot.cert.pem" from firm/root/certs to rootFirmCerts folder

@@ -17,6 +17,22 @@ const { validateSSLCert } = require('ssl-validator');
 const crypto = require('crypto');
 var ALGORITHM = "sha384"; // Accepted: any result of crypto.getHashes(), check doc dor other options
 var SIGNATURE_FORMAT = "hex"; // Accepted: hex, latin1, base64
+let pki = require('node-forge').pki;
+
+var reconn = null;
+require('dotenv').config();
+var AWS = require('aws-sdk');
+AWS.config.update({
+    maxRetries: 3,
+    httpOptions: {
+        timeout: 2 * 1000,
+        connectTimeout: 3 * 1000,
+    },
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_KEY
+});
+var s3 = new AWS.S3();
 
 /* 
     #################################
@@ -401,41 +417,185 @@ function startWebsocket() {
 
             evt.on('UpdateFirmwareRequest', (datax) => {
 
-                // function getPublicKey() {
-                //     var pubKey = fs.readFileSync(`${__dirname}/admin/certs/admin.cert.pem`, 'utf8');
-                //     console.log("\n>>> Public key: \n\n" + pubKey);
-                //     return pubKey;
-                // };
-                    
-                function getPrivateKey() {
-                    var privKey = fs.readFileSync(`${__dirname}/private/admin.key.pem`, 'utf8');
-                    // console.log(">>> Private key: \n\n" + privKey);
-                    return privKey;
-                };
+                evt.emit('UpdateFirmwareResponse', {
+                    state: "Accepted"
+                });
                 
-                function getSignatureToVerify(data) {
-                    var privateKey = getPrivateKey();
-                    var sign = crypto.createSign(ALGORITHM);
-                    // sign.update(data);
-                    var signature = sign.sign(privateKey, SIGNATURE_FORMAT);
-                    // console.log(">>> Signature:\n\n" + signature);
-                    return signature;
-                };
+                // console.log(datax);
 
-                // var publicKey = getPublicKey();
-                var publicKey = datax.requestId.signingCertificate;
-                // var privateKey = getPrivateKeySomehow();
-                var verify = crypto.createVerify(ALGORITHM);
-                var data = "This message will be signed with a RSA private key in PEM format and then verified with a RSA public key in PEM format.";
-                var signature = getSignatureToVerify(data);
-                // console.log('\n>>> Message:\n\n' + data);
-                // verify.update(data);
-                var verification = verify.verify(publicKey, signature, SIGNATURE_FORMAT);
-                console.log('\n>>> Verification result: ' + verification.toString().toUpperCase());
+                let caCert;
+                let caStore;
+                let requestId = datax.requestId;
+                try {
+                    caCert = fs.readFileSync(`${__dirname}/rootFirmCerts/firmroot.cert.pem`).toString();
+                    caStore = pki.createCaStore([ caCert ]);
+                } catch (e) {
+                    console.log('Failed to load CA certificate');
+                    evt.emit('FirmwareStatusNotificationRequest', {
+                        state: "Rejected",
+                        requestId: requestId
+                    });
+                }
 
-                console.log(datax);
+                try {
+                    var client = pki.certificateFromPem(datax.firmware.signingCertificate);
+                    // console.log(client);
+                    try {
+                        var verfy = pki.verifyCertificateChain(caStore, [ client ]);
+                        console.log("Verify certificate: ",verfy);
+                        if(verfy){
+                            evt.emit('FirmwareStatusNotificationRequest', {
+                                state: "CertificateVerified",
+                                requestId: requestId
+                            });
+                        }
+                        else{
+                            evt.emit('FirmwareStatusNotificationRequest', {
+                                state: "Rejected",
+                                requestId: requestId
+                            });
+                        }
+                        
+                    } catch (e) {
+                        console.log(e);
+                        evt.emit('FirmwareStatusNotificationRequest', {
+                            state: "Rejected",
+                            requestId: requestId
+                        });
+                    }
+
+                } catch (error) {
+                    console.log('Failed to load Client CA certificate');
+                    evt.emit('FirmwareStatusNotificationRequest', {
+                        state: "Rejected",
+                        requestId: requestId
+                    });
+                }
+
+                evt.on('FirmwareStatusNotificationResponse', (ack) => {
+
+                    if(ack.status == "CertificateVerified"){
+                        // var BUCKET_NAME = process.env.AWS_S3_BUCKET;
+                        var BUCKET_NAME = datax.firmware.location;
+                        var runCount = 0;
+                        var filename = "Firmware.zip";
+
+                        var createFileStructure = function() {
+                            runCount++;
+                            return new Promise(function(resolve, reject) {
+                                s3.getObject({ Bucket: BUCKET_NAME, Key: filename }, function(err, data){
+                                    if(err == null){
+                                        // console.log(data);
+                                        clearInterval(reconn);
+                                        let writeStream = fs.createWriteStream(path.join(__dirname, 'Firmware.zip'));
+                                        var resp = s3.getObject({ Bucket: BUCKET_NAME, Key: filename }).createReadStream();
+                                        resp.pipe(writeStream);
+
+                                        let downloaded = 0;
+                                        let percent = 0;
+                                        let size = data.ContentLength;
+
+                                        evt.emit('FirmwareStatusNotificationRequest', {
+                                            state: "Downloading",
+                                            requestId: requestId
+                                        });
+
+                                        resp.on('data', function(chunk){
+                                            downloaded += chunk.length;
+                                            percent = (100.0 * downloaded / size).toFixed(2);
+                                            process.stdout.write(`Downloading ${percent}%\r`);
+                                        })
+                                        .on('end', function() {
+                                            evt.emit('FirmwareStatusNotificationRequest', {
+                                                state: "Downloaded",
+                                                requestId: requestId
+                                            });
+                                            // console.log('\nFile Downloaded!');
+                                            // return res.json({ success: true, message: 'File Downloaded!' });
+                                        })
+                                        .on('error', function (error) {
+                                            evt.emit('FirmwareStatusNotificationRequest', {
+                                                state: "Rejected",
+                                                requestId: requestId
+                                            });
+                                            console.log("Error occur when downloading: ",error);
+                                            fs.unlinkSync(path.join(__dirname, 'Firmware.zip'));
+                                            // return res.status(500).json({ success: false, message: "Error occur when downloading: "+ error.message });
+                                        });
+
+                                        resolve(true);
+                                    }
+                                    else{
+                                        if(runCount > req.body.retry){
+                                            clearInterval(reconn);
+                                            console.log("Timeout with error: ",err.message);
+                                            // return res.status(500).json({ success: false, message: "Timeout with error: "+err.message });
+                                        }
+                                        else{
+                                            console.log("Retring: ", runCount);
+                                            reconn = setTimeout(() => {createFileStructure()}, req.body.interval);
+                                        }
+                                        resolve(false);
+                                    }
+                                });
+                            });
+                        };
+
+                        createFileStructure().then((ack)=>{
+                            console.log("Download staus: ",ack);
+                        });
+                    }
+
+                    else if(ack.status == "Downloading"){
+                        console.log('\nFirmware Downloading...');
+                    }
+
+                    else if(ack.status == "Downloaded"){
+                        console.log('\nFirmware Downloaded!');
+                        function getPrivateKey() {
+                            var privKey = fs.readFileSync(`${__dirname}/clientPrivate/admin.key.pem`, 'utf8');
+                            return privKey;
+                        };
+                        
+                        function getSignatureToVerify(data) {
+                            var privateKey = getPrivateKey();
+                            var sign = crypto.createSign(ALGORITHM);
+                            sign.update(data);
+                            var signature = sign.sign(privateKey, SIGNATURE_FORMAT);
+                            return signature;
+                        };
+        
+                        var publicKey = datax.firmware.signingCertificate;
+                        var verify = crypto.createVerify(ALGORITHM);
+                        var data = (datax.requestId).toString();
+                        var signature = getSignatureToVerify(data);
+                        verify.update(data);
+                        var verification = verify.verify(publicKey, signature, SIGNATURE_FORMAT);
+                        console.log('\nVerify signature: ' + verification);
+                        if(verification){
+                            evt.emit('FirmwareStatusNotificationRequest', {
+                                state: "SignatureVerified",
+                                requestId: requestId
+                            });
+                        }
+                        else{
+                            evt.emit('FirmwareStatusNotificationRequest', {
+                                state: "Rejected",
+                                requestId: requestId
+                            });
+                        }
+                    }
+
+                    else if(ack.status == "SignatureVerified"){
+                        console.log("SignatureVerified");
+                    }
+
+                    else{
+                        console.log("Wrong Firmware Status Notification Response status!");
+                    }
+
+                });
             });
-            
         }
         else{
             console.log("Id not include in data base");
