@@ -389,13 +389,13 @@ const onlineAPI = function(app, wss, client) {
 
     app.post(apipath + '/update/', async function(req, res) {
         console.log("Admin is requesting to update firmware of the charging station: " + req.body.username);
-        console.log("Retry: ", req.body.retry);
-        console.log("Interval: ", req.body.interval);
-        console.log("ID: ", req.body.id);
-        console.log("Url: ", req.body.url);
-        console.log("Datetime: ", req.body.datetime);
-        console.log("Cert: ", req.body.cert);
-        console.log("Sign: ", req.body.sign);
+        // console.log("Retry: ", req.body.retry);
+        // console.log("Interval: ", req.body.interval);
+        // console.log("ID: ", req.body.id);
+        // console.log("Url: ", req.body.url);
+        // console.log("Datetime: ", req.body.datetime);
+        // console.log("Cert: ", req.body.cert);
+        // console.log("Sign: ", req.body.sign);
 
         return new Promise(async function(resolve, reject) {
             const ccc = await Array.from(wss.clients).find(client => (client.readyState === client.OPEN && client.id == req.body.username));
@@ -418,69 +418,11 @@ const onlineAPI = function(app, wss, client) {
                     }
                 });
 
-                // // var BUCKET_NAME = process.env.AWS_S3_BUCKET;
-                // var filename = "Firmware.zip";
-                // var BUCKET_NAME = req.body.url;
-                // var runCount = 0;
-
-                // var createFileStructure = function() {
-                //     runCount++;
-                //     return new Promise(function(resolve, reject) {
-                //         s3.getObject({ Bucket: BUCKET_NAME, Key: filename }, function(err, data){
-                //             if(err == null){
-                //                 // console.log(data);
-                //                 clearInterval(reconn);
-                //                 let writeStream = fs.createWriteStream(path.join(__dirname, 'test.zip'));
-                //                 var resp = s3.getObject({ Bucket: BUCKET_NAME, Key: filename }).createReadStream();
-                //                 resp.pipe(writeStream);
-
-                //                 let downloaded = 0;
-                //                 let percent = 0;
-                //                 let size = data.ContentLength;
-
-                //                 resp.on('data', function(chunk){
-                //                     downloaded += chunk.length;
-                //                     percent = (100.0 * downloaded / size).toFixed(2);
-                //                     process.stdout.write(`Downloading ${percent}%\r`);
-                //                 })
-                //                 .on('end', function() {
-                //                     console.log('\nFile Downloaded!');
-                //                     return res.json({ success: true, message: 'File Downloaded!' });
-                //                 })
-                //                 .on('error', function (error) {
-                //                     console.log("Error occur when downloading: ",error);
-                //                     fs.unlinkSync(path.join(__dirname, 'test.zip'));
-                //                     return res.status(500).json({ success: false, message: "Error occur when downloading: "+ error.message });
-                //                 });
-
-                //                 resolve(true);
-                //             }
-                //             else{
-                //                 if(runCount > req.body.retry){
-                //                     clearInterval(reconn);
-                //                     console.log("Timeout with error: ",err.message);
-                //                     return res.status(500).json({ success: false, message: "Timeout with error: "+err.message });
-                //                 }
-                //                 else{
-                //                     console.log("Retring: ", runCount);
-                //                     reconn = setTimeout(() => {createFileStructure()}, req.body.interval);
-                //                 }
-                //                 resolve(false);
-                //             }
-                //         });
-                //     });
-                // };
-                
-                // createFileStructure().then((ack)=>{
-                //     console.log("Dowload staus: ", ack);
-                // });
-
                 events_update_firmware.on('UpdateFirmwareResponse', async (ack) => {
-                    console.log(ack);
 
                     if(ack.state == "Accepted"){
                         events_update_firmware.on('FirmwareStatusNotificationRequest', async (ack) => {
-                            // console.log(ack);
+
                             if(ack.state == "CertificateVerified"){
                                 events_update_firmware.emit('FirmwareStatusNotificationResponse', {
                                     status: "CertificateVerified"
@@ -488,12 +430,10 @@ const onlineAPI = function(app, wss, client) {
                             }
 
                             else if(ack.state == "Downloading"){
-                                // console.log('Downloading...');
                                 events_update_firmware.emit('FirmwareStatusNotificationResponse', {
                                     status: "Downloading"
                                 });
                                 process.stdout.write(`Downloading...\r`);
-                                
                             }
 
                             else if(ack.state == "Downloaded"){
@@ -508,11 +448,20 @@ const onlineAPI = function(app, wss, client) {
                                     status: "SignatureVerified"
                                 });
                                 console.log('SignatureVerified');
+                                res.json({
+                                    success: "true",
+                                    result: "System will reboot to install new firmware"
+                                });
                             }
 
                             else{
                                 console.log("An error occur!");
+                                res.json({
+                                    success: "fasle",
+                                    result: "An error occur!"
+                                });
                             }
+
                         });
                     }
                     

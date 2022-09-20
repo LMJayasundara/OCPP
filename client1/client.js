@@ -19,15 +19,17 @@ var ALGORITHM = "sha384"; // Accepted: any result of crypto.getHashes(), check d
 var SIGNATURE_FORMAT = "hex"; // Accepted: hex, latin1, base64
 let pki = require('node-forge').pki;
 
+var extract = require('extract-zip')
+
 var reconn = null;
 require('dotenv').config();
 var AWS = require('aws-sdk');
 AWS.config.update({
-    maxRetries: 3,
-    httpOptions: {
-        timeout: 2 * 1000,
-        connectTimeout: 3 * 1000,
-    },
+    // maxRetries: 3,
+    // httpOptions: {
+    //     timeout: 2 * 1000,
+    //     connectTimeout: 3 * 1000,
+    // },
     region: process.env.AWS_REGION,
     accessKeyId: process.env.AWS_ACCESS_KEY,
     secretAccessKey: process.env.AWS_SECRET_KEY
@@ -483,7 +485,8 @@ function startWebsocket() {
                         var createFileStructure = function() {
                             runCount++;
                             return new Promise(function(resolve, reject) {
-                                s3.getObject({ Bucket: BUCKET_NAME, Key: filename }, function(err, data){
+                                s3.getObject({ Bucket: BUCKET_NAME, Key: filename }, async function(err, data){
+                                    console.log("Start!");
                                     if(err == null){
                                         // console.log(data);
                                         clearInterval(reconn);
@@ -526,14 +529,14 @@ function startWebsocket() {
                                         resolve(true);
                                     }
                                     else{
-                                        if(runCount > req.body.retry){
+                                        if(runCount > datax.retries){
                                             clearInterval(reconn);
                                             console.log("Timeout with error: ",err.message);
                                             // return res.status(500).json({ success: false, message: "Timeout with error: "+err.message });
                                         }
                                         else{
                                             console.log("Retring: ", runCount);
-                                            reconn = setTimeout(() => {createFileStructure()}, req.body.interval);
+                                            reconn = setTimeout(() => {createFileStructure()}, datax.retryInterval);
                                         }
                                         resolve(false);
                                     }
@@ -572,6 +575,7 @@ function startWebsocket() {
                         verify.update(data);
                         var verification = verify.verify(publicKey, signature, SIGNATURE_FORMAT);
                         console.log('\nVerify signature: ' + verification);
+
                         if(verification){
                             evt.emit('FirmwareStatusNotificationRequest', {
                                 state: "SignatureVerified",
@@ -588,6 +592,31 @@ function startWebsocket() {
 
                     else if(ack.status == "SignatureVerified"){
                         console.log("SignatureVerified");
+                        // Unzip firmware file
+                        var zipfile = path.join(__dirname, 'Firmware.zip');
+                        var outputPath = path.join( __dirname, 'Firmware');
+                        async function extractFirm () {
+                            try {
+                              await extract(zipfile, { dir: outputPath });
+                              console.log('Extraction complete!');
+                            } catch (err) {
+                              console.log(err.message);
+                            }
+                        }
+                        console.log('\nExtracting Firmware...');
+                        extractFirm();
+
+                        // TODO //
+                        // Delete current code
+                        // Update with new code
+                        
+                        // // Reboot
+                        // function execute(command, callback){
+                        //     exec(command, function(error, stdout, stderr){ callback(stdout); });
+                        // }
+                        // execute('sudo reboot -h now', function(callback){
+                        //     console.log(callback);
+                        // });
                     }
 
                     else{
