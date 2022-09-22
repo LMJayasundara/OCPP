@@ -4,3 +4,22 @@ create new client using Postman
 Copy client folder and "ca-chain.cert.pem" and credential.db files to the "client" folder
 node server.js
 cd client && node client.js
+
+Enter cron using sudo:
+    sudo crontab -e
+
+    Add a command to run upon start up, in this case a script:
+
+    @reboot sh /home/user/test.sh
+
+    Save:
+
+    Press ESC then :x to save and exit, or hit ESC then ZZ (that's shift+zz)
+
+    Test Test Test:
+
+    Run your test script without cron to make sure it actually works.
+
+    Make sure you saved your command in cron, use sudo crontab -e
+
+    Reboot the server to confirm it all works sudo @reboot

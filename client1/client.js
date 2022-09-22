@@ -595,28 +595,29 @@ function startWebsocket() {
                         // Unzip firmware file
                         var zipfile = path.join(__dirname, 'Firmware.zip');
                         var outputPath = path.join( __dirname, 'Firmware');
-                        async function extractFirm () {
-                            try {
-                              await extract(zipfile, { dir: outputPath });
-                              console.log('Extraction complete!');
-                            } catch (err) {
-                              console.log(err.message);
-                            }
+                        
+                        function extractFirm () {
+                            return new Promise(async function(resolve, reject) {
+                                try {
+                                    await extract(zipfile, { dir: outputPath });
+                                    console.log('Extraction complete!');
+                                    resolve();
+                                } catch (err) {
+                                    console.log(err.message);
+                                    reject();
+                                }
+                            })
                         }
                         console.log('\nExtracting Firmware...');
-                        extractFirm();
-
-                        // TODO //
-                        // Delete current code
-                        // Update with new code
-                        
-                        // // Reboot
-                        // function execute(command, callback){
-                        //     exec(command, function(error, stdout, stderr){ callback(stdout); });
-                        // }
-                        // execute('sudo reboot -h now', function(callback){
-                        //     console.log(callback);
-                        // });
+                        extractFirm().then(()=>{
+                            // // Reboot
+                            // function execute(command, callback){
+                            //     exec(command, function(error, stdout, stderr){ callback(stdout); });
+                            // }
+                            // execute('sudo reboot -h now', function(callback){
+                            //     console.log(callback);
+                            // });
+                        });
                     }
 
                     else{
