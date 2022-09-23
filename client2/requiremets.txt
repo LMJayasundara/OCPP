@@ -1,3 +1,15 @@
-Client key Folder, ex "ID001"
-"ca-chain.cert.pem" Key
-credential.db
+1. Copy Client keys Folder from pki to ./ (root) folder.
+
+2. Copy "ca-chain.cert.pem" from pki/intermediate/certs to ./ (root) folder.
+
+3. Update credential.db
+
+4. Copy "client.key.pem" from firm/client/private to clientPrivate folder.
+
+5. Copy "firmroot.cert.pem" from firm/root/certs to rootFirmCerts folder.
+
+6. Create ".env" file and replace "AWS_REGION", "AWS_ACCESS_KEY" and "AWS_SECRET_KEY" with yours.
+
+    AWS_REGION=""
+    AWS_ACCESS_KEY=""
+    AWS_SECRET_KEY=""

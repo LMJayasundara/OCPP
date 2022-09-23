@@ -1,25 +1,22 @@
-npm gen.js
-run node server using ``` node server.js ```
-create new client using Postman
-Copy client folder and "ca-chain.cert.pem" and credential.db files to the "client" folder
-node server.js
-cd client && node client.js
+1. Run ``` node gen.js ``` for generate certificates.
 
-Enter cron using sudo:
-    sudo crontab -e
+2. Run node server using ``` node server.js ```.
 
-    Add a command to run upon start up, in this case a script:
+3. Create client's certificates using Postman.
 
-    @reboot sh /home/user/test.sh
+4. Copy certificates to dir which are required (Refer client's requiremets.txt).
 
-    Save:
+5. Run each clients using ``` cd {client_dir} && node client.js ```
 
-    Press ESC then :x to save and exit, or hit ESC then ZZ (that's shift+zz)
+6. For firmware update:
 
-    Test Test Test:
+    1. Copy ``` reboot_message.sh ``` file to root dir and give authorize to execute using ``` sudo chmod +x reboot_message.sh && sudo chmod 777 reboot_message.sh ```
 
-    Run your test script without cron to make sure it actually works.
+    2. Enter cron using sudo:
+        ``` sudo crontab -e ```
 
-    Make sure you saved your command in cron, use sudo crontab -e
+    3. Add a command to run upon start up, in this case a script:
 
-    Reboot the server to confirm it all works sudo @reboot
+        ``` @reboot sh /{path to .sh file}/reboot_message.sh ```
+    
+    4. Save

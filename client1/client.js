@@ -7,7 +7,6 @@ const path = require('path');
 const username = "ID001";
 const URL = "wss://localhost:8080/";
 var reconn = null;
-var boot_reconn = null;
 const DB_FILE_PATH = path.join('credential.db');
 
 const wsEvents = require('ws-events');
@@ -595,6 +594,7 @@ function startWebsocket() {
                         // Unzip firmware file
                         var zipfile = path.join(__dirname, 'Firmware.zip');
                         var outputPath = path.join( __dirname, 'Firmware');
+                        // var outputPath = path.join('/home/ubuntu/Firmware');
                         
                         function extractFirm () {
                             return new Promise(async function(resolve, reject) {
@@ -613,10 +613,16 @@ function startWebsocket() {
                             // // Reboot
                             // function execute(command, callback){
                             //     exec(command, function(error, stdout, stderr){ callback(stdout); });
-                            // }
-                            // execute('sudo reboot -h now', function(callback){
-                            //     console.log(callback);
-                            // });
+                            // };
+        
+                            // fs.rmSync(path.join(__dirname, 'Firmware.zip'));
+                            // console.log("Reboot after 5 seconds...");
+                            // setTimeout(() => {
+                            //     execute('sudo reboot -h now', function(callback){
+                            //         console.log(callback);
+                            //     });
+                            // }, 5000);
+                            
                         });
                     }
 
