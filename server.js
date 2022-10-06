@@ -10,8 +10,8 @@ var ocspCache = new ocsp.Cache();
 var bodyparser = require('body-parser');
 var express = require('express');
 var app = express();
-var api = require('./api.js');
-var online = require('./online.js');
+var apiDis = require('./apiDis.js');
+var apiCon = require('./apiCon.js');
 app.use(bodyparser.json());
 
 // Define variables
@@ -166,7 +166,7 @@ const checkCertificateValidity = (daysRemaining, valid) => {
                 if(checkCertificateValidity(daysRemaining, valid) == true){
                     // console.log(ocspCache.cache);
                     
-                    online.onlineAPI(app, wss, client);
+                    apiCon.onlineAPI(app, wss, client);
                     // Check revoke status of the certificates
                     ocsp.check({cert: rawCert, issuer: rawIssuer}, function(err, res) {
                         if(err) {
@@ -208,7 +208,7 @@ const checkCertificateValidity = (daysRemaining, valid) => {
                                 });
                             }
                             else{
-                                // online.onlineAPI(app, wss, client);
+                                // apiCon.onlineAPI(app, wss, client);
                                 client.send("Client already connected!");
                             }
                         }                              
@@ -228,7 +228,7 @@ const checkCertificateValidity = (daysRemaining, valid) => {
 // Start the server
 server.listen(PORT, ()=>{
     // init APIs
-    api.initAPI(app);
+    apiDis.initAPI(app);
     restartServer();
     console.log( (new Date()) + " Server is listening on port " + PORT);
 });
