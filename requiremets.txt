@@ -3,6 +3,7 @@
 2. Run node server using ``` node server.js ```.
 
 3. Create client's certificates using Postman.
+   Link for the postman document: https://documenter.getpostman.com/view/21583239/2s83zdx74z
 
 4. Copy certificates to dir which are required (Refer client's requiremets.txt).
 
