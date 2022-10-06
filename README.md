@@ -5,12 +5,8 @@ EV Charger Protocol
 
 2. Run node server using ``` node server.js ```.
 
-<<<<<<< HEAD
 3. Create client's certificates using Postman
    Check for the API documentation: ``` https://documenter.getpostman.com/view/21583239/2s83zdx74z ```
-=======
-3. Create client's certificates using Postman(Check ``` postmanAPI.pdf ```).
->>>>>>> 68e7ff585e65603da43c7d9e7688045e5cd939f9
 
 4. Copy certificates to dir which are required (Refer client's requiremets.txt).
 
