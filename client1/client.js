@@ -5,7 +5,7 @@ const path = require('path');
 
 // Define variables
 const username = "ID001";
-const URL = "wss://localhost:8080/";
+const URL = "ws://localhost:6060/";
 var reconn = null;
 const DB_FILE_PATH = path.join('credential.db');
 
@@ -166,15 +166,15 @@ function startWebsocket() {
         if(hash != false){
             // Define websocket
             var ws = new WebSocket(URL + "" + username, {
-                key: fs.readFileSync(`${__dirname+"\\"+username}/private/client.key.pem`),
-                cert: fs.readFileSync(`${__dirname+"\\"+username}/certs/client.cert.pem`),
+                // key: fs.readFileSync(`${__dirname+"\\"+username}/private/client.key.pem`),
+                // cert: fs.readFileSync(`${__dirname+"\\"+username}/certs/client.cert.pem`),
 
-                // To enable security option 2, comment out the ca certificate and change the rejectUnauthorized: false
-                ca: [
-                    fs.readFileSync(`${__dirname}/ca-chain.cert.pem`)
-                ],
-                requestCert: true,
-                rejectUnauthorized: true,
+                // // To enable security option 2, comment out the ca certificate and change the rejectUnauthorized: false
+                // ca: [
+                //     fs.readFileSync(`${__dirname}/ca-chain.cert.pem`)
+                // ],
+                // requestCert: true,
+                // rejectUnauthorized: true,
                 perMessageDeflate: false,
                 // Use for basic authentication
                 headers: {
