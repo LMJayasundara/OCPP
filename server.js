@@ -1,6 +1,7 @@
 const WebSocketServer = require('ws').Server;
 const fs = require('fs');
 const https = require('https');
+const http = require('http');
 const ocsp_server = require('./ocsp_server.js');
 const yaml = require('js-yaml');
 const spawn = require('child_process').spawn;
@@ -9,19 +10,30 @@ var ocsp = require('ocsp');
 var ocspCache = new ocsp.Cache();
 var bodyparser = require('body-parser');
 var express = require('express');
+var sapp = express();
 var app = express();
 var apiDis = require('./apiDis.js');
 var apiCon = require('./apiCon.js');
+sapp.use(bodyparser.json());
 app.use(bodyparser.json());
 
 // Define variables
 var reocsp = null;
-const PORT = 8080;
+const SPORT = 8080;
+const PORT = 6060;
 const onlineclients = new Set();
 const path = require('path');
 const pkidir = path.resolve(__dirname + '/pki/').split(path.sep).join("/")+"/";
 const DB_FILE_PATH = path.join(pkidir, 'db', 'user.db');
 global.config = yaml.load(fs.readFileSync('config/config.yml', 'utf8'));
+
+const wsEvents = require('ws-events');
+
+// Config Variables
+// 1: Unsecured Transport with Basic Authentication Profile
+// 2: TLS with Basic Authentication Profile
+// 3: TLS with Client Side Certificates Profile
+const SECURITY_PROFILE = 2;
 
 // Check user authentication
 const checkAuth = function(id) {
@@ -59,10 +71,9 @@ const options = {
 }
 
 // Create the express-https server
-const server = new https.createServer(options, app);
-
+const sserver = new https.createServer(options, sapp);
 const wss = new WebSocketServer({
-    server,
+    server: sserver,
     rejectUnauthorized: true,
     verifyClient: function (info, cb) {
         // Certificactes auth
@@ -98,6 +109,36 @@ const wss = new WebSocketServer({
     }
 });
 
+const server = new http.createServer({}, app);
+const wsn = new WebSocketServer({
+    server: server,
+    verifyClient: function (info, cb) {
+        var authentication = Buffer.from(info.req.headers.authorization,'base64').toString('utf-8');
+        var loginInfo = authentication.trim().split(':');
+        if (!authentication)
+            cb(false, 401, 'Authorization Required');
+        else {
+            checkAuth(loginInfo[0]).then(function(hash) {
+
+                if(hash == false){
+                    console.log("ERROR Username NOT matched");
+                    cb(false, 401, 'Authorization Required');
+                }
+                else if(hash == loginInfo[1]){
+                    console.log("Username and Password matched");
+                    info.req.identity = loginInfo[0];
+                    info.req.hash = loginInfo[1];
+                    cb(true, 200, 'Authorized');
+                }
+                else{
+                    console.log("ERROR Password NOT matched");
+                    cb(false, 401, 'Authorization Required');
+                }
+            });
+        }
+    }
+});
+
 // Return validate days
 const getDaysBetween = (validFrom, validTo) => {
     return Math.round(Math.abs(+validFrom - +validTo) / 8.64e7);
@@ -129,6 +170,7 @@ const checkCertificateValidity = (daysRemaining, valid) => {
 (async function () {
     wss.on('connection', async function (ws, req) {
 
+        console.log("connected");
         // Add client id to web socket
         ws.id = req.identity;
 
@@ -166,7 +208,7 @@ const checkCertificateValidity = (daysRemaining, valid) => {
                 if(checkCertificateValidity(daysRemaining, valid) == true){
                     // console.log(ocspCache.cache);
                     
-                    apiCon.onlineAPI(app, wss, client);
+                    apiCon.onlineAPI(sapp, wss, client);
                     // Check revoke status of the certificates
                     ocsp.check({cert: rawCert, issuer: rawIssuer}, function(err, res) {
                         if(err) {
@@ -208,7 +250,7 @@ const checkCertificateValidity = (daysRemaining, valid) => {
                                 });
                             }
                             else{
-                                // apiCon.onlineAPI(app, wss, client);
+                                // apiCon.onlineAPI(sapp, wss, client);
                                 client.send("Client already connected!");
                             }
                         }                              
@@ -223,7 +265,55 @@ const checkCertificateValidity = (daysRemaining, valid) => {
             }
         });
     });
+
+    wsn.on('connection', async function (ws, req) {
+        console.log("connected");
+        ws.id = req.identity;
+        console.log(req.identity);
+        // Broadcast message to specific connected client
+        return new Promise(async function(resolve, reject) {
+            const ccc = await Array.from(wsn.clients).find(client => (client.readyState === client.OPEN && client.id == req.identity));
+            resolve(ccc)
+        }).then((client)=>{
+
+            if(client != undefined){
+                apiCon.onlineAPI(app, wsn, client);
+                onlineclients.add(req.identity);
+
+                console.log("Connected Charger ID: "  + client.id);
+                client.send("Connected to the server");
+
+                // Send and resive data
+                client.on('message', function incoming(message) {
+                    // console.log("From client: ", client.id, ": ", message.toString());
+                    // let traResRow = fs.readFileSync('./json/TransactionEventResponse.json');
+                    // client.send(traResRow)
+                });
+
+                // Client disconnected event
+                client.on('close', function () {
+                    // Client remove from online client set
+                    onlineclients.delete(client.id);
+                    console.log('Client disconnected '+ client.id);
+                    console.log(onlineclients);
+                    client.close();
+                    restartServer();
+                });
+            }
+            else{
+                console.log("Client Undefined!");
+            }
+        });
+    });
 })();
+
+// Start the server
+sserver.listen(SPORT, ()=>{
+    // init APIs
+    apiDis.initAPI(sapp);
+    restartServer();
+    console.log( (new Date()) + " Secure server is listening on port " + SPORT);
+});
 
 // Start the server
 server.listen(PORT, ()=>{

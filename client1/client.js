@@ -5,7 +5,7 @@ const path = require('path');
 
 // Define variables
 const username = "ID001";
-const URL = "wss://localhost:8080/";
+const URL = "ws://localhost:6060/";
 var reconn = null;
 const DB_FILE_PATH = path.join('credential.db');
 
@@ -166,15 +166,15 @@ function startWebsocket() {
         if(hash != false){
             // Define websocket
             var ws = new WebSocket(URL + "" + username, {
-                key: fs.readFileSync(`${__dirname+"\\"+username}/private/client.key.pem`),
-                cert: fs.readFileSync(`${__dirname+"\\"+username}/certs/client.cert.pem`),
+                // key: fs.readFileSync(`${__dirname+"\\"+username}/private/client.key.pem`),
+                // cert: fs.readFileSync(`${__dirname+"\\"+username}/certs/client.cert.pem`),
 
-                // To enable security option 2, comment out the ca certificate and change the rejectUnauthorized: false
-                ca: [
-                    fs.readFileSync(`${__dirname}/ca-chain.cert.pem`)
-                ],
-                requestCert: true,
-                rejectUnauthorized: true,
+                // // To enable security option 2, comment out the ca certificate and change the rejectUnauthorized: false
+                // ca: [
+                //     fs.readFileSync(`${__dirname}/ca-chain.cert.pem`)
+                // ],
+                // requestCert: true,
+                // rejectUnauthorized: true,
                 perMessageDeflate: false,
                 // Use for basic authentication
                 headers: {
@@ -186,6 +186,49 @@ function startWebsocket() {
 
             // Trigger event when client is connected
             ws.on('open', function() {
+
+                function BootNotificationRequest() {
+                    return new Promise(function(resolve, reject) {
+                        try {
+                            evt.emit("BootNotificationRequest", {
+                                reason: "PowerUp",
+                                chargingStation: {
+                                    model: username,
+                                    vendorName: "vendorName_"+username
+                                }
+                            });
+                            resolve();
+                        } catch (error) {
+                            console.log(error.message);
+                        }
+                    });
+                };
+
+                function BootNotificationResponse() {
+                    try {
+                        function look() {
+                            return new Promise(function(resolve, reject) {
+                                evt.on("BootNotificationResponse", (ack)=>{
+                                    console.log(ack);
+                                    resolve();
+                                });
+                            });
+                        };
+
+                        look().catch((err)=>{
+                            console.log(err);
+                        }).then(()=>{
+                            
+                        });
+
+                    } catch (error) {
+                        console.log(error.message);
+                    }
+                };
+
+                BootNotificationRequest().then(()=>{
+                    BootNotificationResponse();
+                });
 
                 // let run = false;
                 // if (run == false){
@@ -631,6 +674,22 @@ function startWebsocket() {
                     }
 
                 });
+            });
+
+            evt.on('rebootCharger', (ack) =>{
+                console.log("Reboot after 5 seconds...");
+                // // Reboot
+                // function execute(command, callback){
+                //     exec(command, function(error, stdout, stderr){ callback(stdout); });
+                // };
+
+                // fs.rmSync(path.join(__dirname, 'Firmware.zip'));
+                // console.log("Reboot after 5 seconds...");
+                // setTimeout(() => {
+                //     execute('sudo reboot -h now', function(callback){
+                //         console.log(callback);
+                //     });
+                // }, 5000);
             });
         }
         else{

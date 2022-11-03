@@ -132,7 +132,6 @@ const checkUser = function(hash) {
 const onlineAPI = function(app, wss, client) {
     var events = wsEvents(client);
 
-
     app.post(apipath + '/updatepass/', async function(req, res) {
         console.log("Admin is requesting to update Basic auth password of client " + req.body.username);
         var newhash = crypto.createHash('sha256').update(req.body.username + ':' + req.body.newpasswd).digest('hex');
@@ -330,13 +329,6 @@ const onlineAPI = function(app, wss, client) {
         }
     });
 
-    // A04 - Security Event Notification
-    events.on('SecurityEventNotificationRequest', (ack) => {
-        events.emit('SecurityEventNotificationResponse', {
-            state: ack.state
-        });
-    });
-
     app.post(apipath + '/reboot/', async function(req, res) {
         console.log("Admin is requesting to reboot the charging station: " + req.body.username);
 
@@ -350,39 +342,43 @@ const onlineAPI = function(app, wss, client) {
             resolve(ccc)
         }).then((client)=>{
             if(client != undefined){
-                function closeClient() {
-                    return new Promise((resolve) => {
-                      setTimeout(() => {
-                        client.close();
-                        resolve();
-                      }, 10000);
-                    });
-                }
+                // function closeClient() {
+                //     return new Promise((resolve) => {
+                //       setTimeout(() => {
+                //         client.close();
+                //         resolve();
+                //       }, 10000);
+                //     });
+                // }
                   
-                function rebootPi() {
-                    return new Promise((resolve) => {
-                        setTimeout(() => {
-                            console.log("Reboting...");
+                // function rebootPi() {
+                //     return new Promise((resolve) => {
+                //         setTimeout(() => {
+                //             console.log("Reboting...");
 
-                            // function execute(command, callback){
-                            //     exec(command, function(error, stdout, stderr){ callback(stdout); });
-                            // }
-                            // execute('sudo reboot -h now', function(callback){
-                            //     console.log(callback);
-                            // });
+                //             // function execute(command, callback){
+                //             //     exec(command, function(error, stdout, stderr){ callback(stdout); });
+                //             // }
+                //             // execute('sudo reboot -h now', function(callback){
+                //             //     console.log(callback);
+                //             // });
 
-                            resolve();
-                        }, 1000);
-                    });
-                }
+                //             resolve();
+                //         }, 1000);
+                //     });
+                // }
 
-                async function sequentialStart() {
-                    await closeClient();
-                    await rebootPi();
-                }
+                // async function sequentialStart() {
+                //     await closeClient();
+                //     await rebootPi();
+                // }
+                // sequentialStart();
 
-                sequentialStart();
+                var events_reboot_charger = wsEvents(client);
+                events_reboot_charger.emit('rebootCharger');
                   
+            } else{
+                console.log("Client Undefined!");
             }
         });
     });
@@ -481,6 +477,13 @@ const onlineAPI = function(app, wss, client) {
 
     });
 
+    // A04 - Security Event Notification
+    events.on('SecurityEventNotificationRequest', (ack) => {
+        events.emit('SecurityEventNotificationResponse', {
+            state: ack.state
+        });
+    });
+    
     events.on('BootNotificationRequest', async (ack) => {
         console.log(ack);
         events.emit('BootNotificationResponse', {
