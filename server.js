@@ -27,6 +27,8 @@ const pkidir = path.resolve(__dirname + '/pki/').split(path.sep).join("/")+"/";
 const DB_FILE_PATH = path.join(pkidir, 'db', 'user.db');
 global.config = yaml.load(fs.readFileSync('config/config.yml', 'utf8'));
 
+const wsEvents = require('ws-events');
+
 // Config Variables
 // 1: Unsecured Transport with Basic Authentication Profile
 // 2: TLS with Basic Authentication Profile

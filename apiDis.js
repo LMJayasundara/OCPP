@@ -274,7 +274,7 @@ const initAPI = function(app) {
     });
 
     app.post(apipath + '/getPair/', function(req, res) {
-        console.log("Admin is requesting key pairs of client " + req.params.username);
+        console.log("Admin is requesting key pairs of client " + req.body.username);
 
         var hash = crypto.createHash('sha256').update(req.body.username + ':' + req.body.passwd).digest('hex');
         checkUser(hash).then(function(ack){

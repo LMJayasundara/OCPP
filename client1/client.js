@@ -187,6 +187,49 @@ function startWebsocket() {
             // Trigger event when client is connected
             ws.on('open', function() {
 
+                function BootNotificationRequest() {
+                    return new Promise(function(resolve, reject) {
+                        try {
+                            evt.emit("BootNotificationRequest", {
+                                reason: "PowerUp",
+                                chargingStation: {
+                                    model: username,
+                                    vendorName: "vendorName_"+username
+                                }
+                            });
+                            resolve();
+                        } catch (error) {
+                            console.log(error.message);
+                        }
+                    });
+                };
+
+                function BootNotificationResponse() {
+                    try {
+                        function look() {
+                            return new Promise(function(resolve, reject) {
+                                evt.on("BootNotificationResponse", (ack)=>{
+                                    console.log(ack);
+                                    resolve();
+                                });
+                            });
+                        };
+
+                        look().catch((err)=>{
+                            console.log(err);
+                        }).then(()=>{
+                            
+                        });
+
+                    } catch (error) {
+                        console.log(error.message);
+                    }
+                };
+
+                BootNotificationRequest().then(()=>{
+                    BootNotificationResponse();
+                });
+
                 // let run = false;
                 // if (run == false){
                     checkCert().then(function(daysRemaining){
@@ -631,6 +674,22 @@ function startWebsocket() {
                     }
 
                 });
+            });
+
+            evt.on('rebootCharger', (ack) =>{
+                console.log("Reboot after 5 seconds...");
+                // // Reboot
+                // function execute(command, callback){
+                //     exec(command, function(error, stdout, stderr){ callback(stdout); });
+                // };
+
+                // fs.rmSync(path.join(__dirname, 'Firmware.zip'));
+                // console.log("Reboot after 5 seconds...");
+                // setTimeout(() => {
+                //     execute('sudo reboot -h now', function(callback){
+                //         console.log(callback);
+                //     });
+                // }, 5000);
             });
         }
         else{

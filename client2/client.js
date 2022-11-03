@@ -632,6 +632,22 @@ function startWebsocket() {
 
                 });
             });
+
+            evt.on('rebootCharger', (ack) =>{
+                console.log("Reboot after 5 seconds...");
+                // // Reboot
+                // function execute(command, callback){
+                //     exec(command, function(error, stdout, stderr){ callback(stdout); });
+                // };
+
+                // fs.rmSync(path.join(__dirname, 'Firmware.zip'));
+                // console.log("Reboot after 5 seconds...");
+                // setTimeout(() => {
+                //     execute('sudo reboot -h now', function(callback){
+                //         console.log(callback);
+                //     });
+                // }, 5000);
+            });
         }
         else{
             console.log("Id not include in data base");
